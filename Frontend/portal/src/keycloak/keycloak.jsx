@@ -1,4 +1,3 @@
-// src/keycloak.jsx
 import Keycloak from "keycloak-js";
 
 export const keycloak = new Keycloak({
@@ -8,29 +7,32 @@ export const keycloak = new Keycloak({
 });
 
 let initPromise = null;
-export function initKeycloak() {
+let fallbackTriggered = false;
+
+export function initKeycloak({ timeoutMs = 8000 } = {}) {
     if (initPromise) return initPromise;
 
-    const optsSilent = {
-        onLoad: "check-sso",
-        pkceMethod: "S256",
-        checkLoginIframe: false,
-        silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
-    };
-
-    const timeout = new Promise((_, rej) =>
-        setTimeout(() => rej(new Error("KC init timeout")), 8000)
-    );
-
-    initPromise = Promise.race([keycloak.init(optsSilent), timeout])
-        .catch(async (e) => {
-            console.warn("[KC] silent 실패 또는 타임아웃 → login-required 폴백", e);
-            return keycloak.init({
-                onLoad: "login-required",
-                pkceMethod: "S256",
-                checkLoginIframe: false,
-            });
+    // 1차
+    initPromise = keycloak
+        .init({
+            onLoad: "check-sso",
+            pkceMethod: "S256",
+            checkLoginIframe: false,
+            silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+        })
+        // 실패
+        .catch((e) => {
+            throw e;
         });
+
+    // 2차
+    setTimeout(() => {
+        if (fallbackTriggered) return;
+        if (!keycloak.authenticated) {
+            fallbackTriggered = true;
+            keycloak.login({ redirectUri: window.location.href });
+        }
+    }, timeoutMs);
 
     return initPromise;
 }
