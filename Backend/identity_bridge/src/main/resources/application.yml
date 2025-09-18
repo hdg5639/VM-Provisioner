@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: identity_bridge
+
+  datasource:
+    driver-class-name: ${DATABASE_NAME}
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        show_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+
+  main:
+    web-application-type: servlet
+
+  mvc:
+    problem-details:
+      enabled: true
+
+  security:
+    oauth2:
+      client:
+        registration:
+          keycloak:
+            client-id: portal-bff
+            client-secret: ${KC_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: ${KC_REDIRECT_URI}
+        provider:
+          keycloak:
+            issuer-uri: ${KC_ISSUER_URI}
+
+server:
+  port: ${SERVER_PORT}
+
+  error:
+    include-stacktrace: never
+    include-binding-errors: never
+    include-message: always
+
+  forward-headers-strategy: framework
+
+
+springdoc:
+  swagger-ui:
+    path: /id/docs
+    operations-sorter: method
+
+  api-docs:
+    path: /id/api-docs
