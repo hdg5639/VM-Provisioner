@@ -29,13 +29,10 @@ spring:
       client:
         registration:
           keycloak:
-            client-id: portal-bff
+            client-id: ${KC_CLIENT_ID}
             client-secret: ${KC_CLIENT_SECRET}
-            authorization-grant-type: authorization_code
-            scope:
-              - openid
-              - profile
-              - email
+            authorization-grant-type: ${KC_GRANT_TYPE}
+            scope: ${KC_SCOPE}
             redirect-uri: ${KC_REDIRECT_URI}
         provider:
           keycloak:
