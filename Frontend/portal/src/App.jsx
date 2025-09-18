@@ -8,31 +8,29 @@ export default function App() {
     const [error, setError] = useState("");
 
     useEffect(() => {
-        let timer;
+        let t;
         (async () => {
             try {
-                const authenticated = await initKeycloak(); // ★ 가드된 init: 중복 init 방지
+                const authenticated = await initKeycloak();
                 setAuthed(authenticated);
                 if (authenticated) {
                     setName(
                         keycloak.tokenParsed?.preferred_username ||
                         keycloak.tokenParsed?.name || ""
                     );
-                    // 토큰 자동 갱신
-                    timer = setInterval(() => {
+                    t = setInterval(() => {
                         keycloak.updateToken(60).catch(() =>
-                            keycloak.login({ redirectUri: window.location.origin })
+                            keycloak.login({ redirectUri: window.location.href })
                         );
                     }, 20000);
                 }
             } catch (e) {
-                console.error(e);
                 setError(e?.message || "Keycloak init failed");
             } finally {
-                setReady(true);
+                setReady(true); // ✅ 여기서 반드시 로딩 해제
             }
         })();
-        return () => timer && clearInterval(timer);
+        return () => t && clearInterval(t);
     }, []);
 
     const doLogin = () =>
