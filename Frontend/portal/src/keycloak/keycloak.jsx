@@ -7,32 +7,30 @@ export const keycloak = new Keycloak({
 });
 
 let initPromise = null;
-let fallbackTriggered = false;
 
 export function initKeycloak({ timeoutMs = 8000 } = {}) {
     if (initPromise) return initPromise;
 
-    // 1차
-    initPromise = keycloak
-        .init({
-            onLoad: "check-sso",
-            pkceMethod: "S256",
-            checkLoginIframe: false,
-            silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
-        })
-        // 실패
+    const opts = {
+        onLoad: "check-sso",
+        pkceMethod: "S256",
+        checkLoginIframe: false,
+        silentCheckSsoRedirectUri: `${window.location.origin}/silent-check-sso.html`,
+    };
+
+    // 1차 SSO
+    const silent = keycloak.init(opts)
+        .then((ok) => !!ok)
         .catch((e) => {
-            throw e;
+            console.warn("[KC init] silent failed:", e);
+            return false; // 에러여도 메인 표시
         });
 
-    // 2차
-    setTimeout(() => {
-        if (fallbackTriggered) return;
-        if (!keycloak.authenticated) {
-            fallbackTriggered = true;
-            keycloak.login({ redirectUri: window.location.href });
-        }
-    }, timeoutMs);
+    // 타임아웃
+    const timeout = new Promise((resolve) =>
+        setTimeout(() => resolve(false), timeoutMs)
+    );
 
+    initPromise = Promise.race([silent, timeout]);
     return initPromise;
 }

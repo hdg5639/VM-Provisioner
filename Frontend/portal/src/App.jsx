@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { keycloak, initKeycloak } from "./keycloak/keycloak.jsx"; // 이전에 만든 파일 그대로 사용
+import { keycloak, initKeycloak } from "./keycloak/keycloak.jsx";
 
 export default function App() {
     const [ready, setReady] = useState(false);
@@ -9,9 +9,19 @@ export default function App() {
 
     useEffect(() => {
         let t;
+
+        keycloak.onAuthSuccess = () => {
+            setAuthed(true);
+            setName(
+                keycloak.tokenParsed?.preferred_username ||
+                keycloak.tokenParsed?.name || ""
+            );
+        };
+        keycloak.onAuthLogout = () => setAuthed(false);
+
         (async () => {
             try {
-                const authenticated = await initKeycloak();
+                const authenticated = await initKeycloak({ timeoutMs: 8000 });
                 setAuthed(authenticated);
                 if (authenticated) {
                     setName(
@@ -20,36 +30,42 @@ export default function App() {
                     );
                     t = setInterval(() => {
                         keycloak.updateToken(60).catch(() =>
-                            keycloak.login({ redirectUri: window.location.href })
+                            setAuthed(false)
                         );
                     }, 20000);
                 }
             } catch (e) {
                 setError(e?.message || "Keycloak init failed");
             } finally {
-                setReady(true); // ✅ 여기서 반드시 로딩 해제
+                setReady(true);
             }
         })();
+
         return () => t && clearInterval(t);
     }, []);
 
     const doLogin = () =>
-        keycloak.login({ redirectUri: window.location.origin });
+        keycloak.login({ redirectUri: window.location.href });
 
-    // ✅ 회원가입: Keycloak의 Register 화면으로 바로 이동
     const doRegister = () =>
-        keycloak.register({ redirectUri: window.location.origin });
+        keycloak.register({ redirectUri: window.location.href });
 
     const doLogout = () =>
+        // 로그아웃 후에도 메인에 머물도록 홈으로 귀환
         keycloak.logout({ redirectUri: window.location.origin });
 
-    if (!ready) return <div>로딩중…</div>;
+    if (!ready) return <div>로딩중...</div>;
 
     return (
-        <main style={{display:"grid",placeItems:"center",minHeight:"100vh"}}>
+        <main style={{minHeight:"100vh",display:"grid",placeItems:"center"}}>
             <div style={{width:420,padding:24,borderRadius:16,boxShadow:"0 10px 30px rgba(0,0,0,.08)"}}>
                 <h1 style={{marginTop:0}}>GJ 클라우드 — Keycloak Test</h1>
-                {error && <div style={{color:"crimson"}}>에러: {error}</div>}
+
+                {error && (
+                    <div style={{background:"#fff3f3",border:"1px solid #fca5a5",color:"#b91c1c",padding:12,borderRadius:12,marginBottom:16}}>
+                        초기화 에러: {error}
+                    </div>
+                )}
 
                 {authed ? (
                     <>
@@ -58,9 +74,10 @@ export default function App() {
                     </>
                 ) : (
                     <>
+                        {}
+                        <p style={{color:"#666"}}>로그인하지 않아도 이 화면에서 대기합니다.</p>
                         <button onClick={doLogin} style={btn}>로그인</button>
-                        {/* ★ 여기 추가 */}
-                        <button onClick={doRegister} style={{...btn, marginTop:8}}>회원가입</button>
+                        <button onClick={doRegister} style={{...btn,marginTop:8}}>회원가입</button>
                     </>
                 )}
             </div>
@@ -69,6 +86,6 @@ export default function App() {
 }
 
 const btn = {
-    width:"100%", padding:"12px 16px", borderRadius:12,
-    border:"1px solid #111", background:"#111", color:"#fff", cursor:"pointer"
+    width:"100%",padding:"12px 16px",borderRadius:12,
+    border:"1px solid #111",background:"#111",color:"#fff",cursor:"pointer"
 };
