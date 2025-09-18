@@ -56,3 +56,7 @@ springdoc:
 
   api-docs:
     path: /id/api-docs
+
+downstream:
+  routes:
+    vm: ${VM_SERVICE_URI}
