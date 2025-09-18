@@ -29,13 +29,11 @@ export default function App() {
         loadMe();
     }, []);
 
-    // ✅ BFF로 확실히 보냄: /auth/login (Caddy에서 BFF로 라우팅)
     const onLogin = () => {
         setNavBusy(true);
         window.location.assign(`${ORIGIN}/auth/login`);
     };
 
-    // ✅ OIDC 로그아웃 후 BFF가 / 로 복귀시킴
     const onLogout = () => {
         setNavBusy(true);
         window.location.assign(`${ORIGIN}/logout`);
