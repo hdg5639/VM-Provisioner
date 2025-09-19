@@ -85,7 +85,7 @@ public class MultiProxyController {
                     .body(("No response from downstream: " + url).getBytes(StandardCharsets.UTF_8));
         }
 
-        log.info(cr.toString());
+        log.info("cr: {}", cr);
 
         // 바디를 확실히 흡수
         byte[] resp = cr.bodyToMono(byte[].class).blockOptional().orElse(new byte[0]);
