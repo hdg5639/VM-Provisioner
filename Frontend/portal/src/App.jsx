@@ -12,17 +12,30 @@ export default function App() {
 
     const ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
+    // 👇 공용 헬퍼
+    async function safeJson(res) {
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+        if (ct.includes("application/json")) {
+            // 빈 바디(0 byte)면 json()이 터지므로 text로 한 번 확인
+            const text = await res.text();
+            if (!text) return null;
+            try { return JSON.parse(text); } catch { return null; }
+        }
+        return null;
+    }
+
     // BFF 세션 체크
     async function loadMe() {
         try {
             const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
-            if (res.ok) setMe(await res.json());
-            else setMe(null);
-        } catch {
-            setMe(null);
-        } finally {
-            setLoading(false);
-        }
+            if (res.ok) {
+                const data = await safeJson(res);
+                setMe(data ?? null);
+            } else {
+                setMe(null);
+            }
+        } catch { setMe(null); }
+        finally { setLoading(false); }
     }
 
     // user-service 데이터 로딩
@@ -31,10 +44,23 @@ export default function App() {
         try {
             const [pRes, kRes] = await Promise.all([
                 fetch("/api/ds/user/users/me", { credentials: "include", cache: "no-store" }),
-                fetch("/api/ds/user/keys", { credentials: "include", cache: "no-store" }),
+                fetch("/api/ds/user/keys",      { credentials: "include", cache: "no-store" }),
             ]);
-            if (pRes.ok) setProfile(await pRes.json());
-            if (kRes.ok) setKeys(await kRes.json());
+
+            if (pRes.ok) {
+                const p = await safeJson(pRes);
+                if (p) setProfile(p);
+            } else if (pRes.status === 403) {
+                setMsg("프로필 권한 거부(403)"); // SecurityConfig 매칭 확인 필요
+            }
+
+            if (kRes.ok) {
+                const k = await safeJson(kRes);
+                if (Array.isArray(k)) setKeys(k);
+            } else if (kRes.status === 400) {
+                const txt = await kRes.text().catch(() => "");
+                setMsg(`키 목록 요청 실패(400) ${txt}`);
+            }
         } catch (e) {
             console.error(e);
             setMsg("데이터 로딩 실패");
