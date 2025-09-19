@@ -1,65 +1,107 @@
 import { useEffect, useState } from "react";
 
 export default function App() {
-    const [me, setMe] = useState(null);         // BFF /api/me (세션 체크용)
+    const [me, setMe] = useState(null);           // BFF /api/me (세션 체크)
     const [profile, setProfile] = useState(null); // user-service /users/me
     const [keys, setKeys] = useState([]);         // user-service /keys
     const [loading, setLoading] = useState(true);
+
     const [navBusy, setNavBusy] = useState(false);
     const [opBusy, setOpBusy] = useState(false);  // 키 등록/삭제 중
     const [msg, setMsg] = useState("");
     const [form, setForm] = useState({ name: "", publicKey: "" });
 
+    // 진단 덤프
+    const [diagProfile, setDiagProfile] = useState(null);
+    const [diagKeys, setDiagKeys] = useState(null);
+
     const ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
-    // 👇 공용 헬퍼
-    async function safeJson(res) {
+    /* ---------------- helpers ---------------- */
+
+    // JSON일 때만 안전 파싱
+    async function safeJsonFromResponse(res) {
         const ct = (res.headers.get("content-type") || "").toLowerCase();
-        if (ct.includes("application/json")) {
-            // 빈 바디(0 byte)면 json()이 터지므로 text로 한 번 확인
-            const text = await res.text();
-            if (!text) return null;
-            try { return JSON.parse(text); } catch { return null; }
-        }
-        return null;
+        if (!ct.includes("application/json")) return null;
+        const text = await res.text().catch(() => "");
+        if (!text) return null;
+        try { return JSON.parse(text); } catch { return null; }
     }
+
+    // 에러 메시지용 텍스트
+    const safeText = async (res) => {
+        try { return await res.text(); } catch { return ""; }
+    };
+
+    // 진단용 fetch: status/headers/ct/text/json까지 반환
+    async function fetchDiag(url, opts = {}) {
+        const res = await fetch(url, {
+            credentials: "include",
+            cache: "no-store",
+            ...opts,
+        });
+        const headers = Object.fromEntries(res.headers.entries());
+        const ct = (headers["content-type"] || "").toLowerCase();
+
+        // body를 한 번만 소비해야 해서 text 먼저 읽고, json은 파싱 시도
+        const text = await res.text().catch(() => "");
+        let json = null;
+        if (ct.includes("application/json") && text) {
+            try { json = JSON.parse(text); } catch { /* ignore */ }
+        }
+
+        return {
+            url,
+            ok: res.ok,
+            status: res.status,
+            headers,
+            contentType: ct,
+            text,
+            json,
+        };
+    }
+
+    /* ---------------- data loads ---------------- */
 
     // BFF 세션 체크
     async function loadMe() {
         try {
-            const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+            const res = await fetch("/api/me", {
+                credentials: "include",
+                cache: "no-store",
+            });
             if (res.ok) {
-                const data = await safeJson(res);
+                const data = await safeJsonFromResponse(res);
                 setMe(data ?? null);
             } else {
                 setMe(null);
             }
-        } catch { setMe(null); }
-        finally { setLoading(false); }
+        } catch {
+            setMe(null);
+        } finally {
+            setLoading(false);
+        }
     }
 
-    // user-service 데이터 로딩
+    // user-service 데이터(프로필/키) 로딩 + 진단 저장
     async function loadUserData() {
         if (!me) return;
         try {
-            const [pRes, kRes] = await Promise.all([
-                fetch("/api/ds/user/users/me", { credentials: "include", cache: "no-store" }),
-                fetch("/api/ds/user/keys",      { credentials: "include", cache: "no-store" }),
+            const [p, k] = await Promise.all([
+                fetchDiag("/api/ds/user/users/me"),
+                fetchDiag("/api/ds/user/keys"),
             ]);
 
-            if (pRes.ok) {
-                const p = await safeJson(pRes);
-                if (p) setProfile(p);
-            } else if (pRes.status === 403) {
-                setMsg("프로필 권한 거부(403)"); // SecurityConfig 매칭 확인 필요
-            }
+            setDiagProfile(p);
+            setDiagKeys(k);
 
-            if (kRes.ok) {
-                const k = await safeJson(kRes);
-                if (Array.isArray(k)) setKeys(k);
-            } else if (kRes.status === 400) {
-                const txt = await kRes.text().catch(() => "");
-                setMsg(`키 목록 요청 실패(400) ${txt}`);
+            if (p.ok && p.json) setProfile(p.json);
+            else if (p.status === 403) setMsg("프로필 권한 거부(403)");
+
+            if (k.ok && Array.isArray(k.json)) {
+                setKeys(k.json);
+            } else if (!k.ok) {
+                setMsg(`키 목록 실패 (${k.status}) ${k.text?.slice(0, 200)}`);
             }
         } catch (e) {
             console.error(e);
@@ -70,6 +112,8 @@ export default function App() {
     useEffect(() => { loadMe(); }, []);
     useEffect(() => { if (me) loadUserData(); }, [me]);
 
+    /* ---------------- auth nav ---------------- */
+
     const onLogin = () => {
         setNavBusy(true);
         window.location.assign(`${ORIGIN}/auth/login`);
@@ -78,6 +122,8 @@ export default function App() {
         setNavBusy(true);
         window.location.assign(`${ORIGIN}/logout`);
     };
+
+    /* ---------------- actions ---------------- */
 
     // 키 등록
     const createKey = async (ev) => {
@@ -102,15 +148,26 @@ export default function App() {
             });
 
             if (res.ok) {
+                // POST 응답이 KeyDto JSON이면 로컬 상태에 즉시 반영
+                const createdText = await res.text().catch(() => "");
+                if (createdText) {
+                    try {
+                        const created = JSON.parse(createdText);
+                        if (created && created.id != null) {
+                            setKeys((prev) => [created, ...prev]);
+                        }
+                    } catch { /* ignore parse error */ }
+                }
                 setForm({ name: "", publicKey: "" });
-                await loadUserData();
                 setMsg("키가 등록되었습니다.");
+                // 최신 목록/진단 다시 조회
+                await loadUserData();
             } else {
                 const txt = await safeText(res);
                 setMsg(`키 등록 실패 (${res.status}) ${txt}`);
             }
         } catch (err) {
-            console.error(err); // ← err를 사용하면 no-unused-vars 해소
+            console.error(err);
             setMsg("키 등록 중 오류");
         } finally {
             setOpBusy(false);
@@ -128,7 +185,7 @@ export default function App() {
                 credentials: "include",
             });
             if (res.ok || res.status === 204) {
-                setKeys(prev => prev.filter(k => k.id !== id));
+                setKeys((prev) => prev.filter((k) => k.id !== id));
                 setMsg("삭제되었습니다.");
             } else {
                 const txt = await safeText(res);
@@ -140,6 +197,8 @@ export default function App() {
             setOpBusy(false);
         }
     }
+
+    /* ---------------- render ---------------- */
 
     if (loading) return <div>로딩중...</div>;
 
@@ -173,7 +232,7 @@ export default function App() {
                             <h3 style={{ margin: "8px 0" }}>내 SSH 키</h3>
                             {keys?.length ? (
                                 <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-                                    {keys.map(k => (
+                                    {keys.map((k) => (
                                         <li key={k.id} style={itemRow}>
                                             <div style={{ flex: 1 }}>
                                                 <div><b>{k.name}</b></div>
@@ -200,7 +259,7 @@ export default function App() {
                                     <input
                                         type="text"
                                         value={form.name}
-                                        onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                                        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                                         placeholder="예: macbook"
                                         style={input}
                                         disabled={opBusy}
@@ -210,7 +269,7 @@ export default function App() {
                                     <label style={label}>공개키</label>
                                     <textarea
                                         value={form.publicKey}
-                                        onChange={e => setForm(f => ({ ...f, publicKey: e.target.value }))}
+                                        onChange={(e) => setForm((f) => ({ ...f, publicKey: e.target.value }))}
                                         placeholder="ssh-ed25519 AAAAC3... user@host"
                                         style={{ ...input, height: 96 }}
                                         disabled={opBusy}
@@ -220,18 +279,41 @@ export default function App() {
                                     <button type="submit" style={btn} disabled={opBusy}>
                                         {opBusy ? "등록 중..." : "등록"}
                                     </button>
-                                    <button type="button" style={btnSecondary} onClick={() => setForm({ name: "", publicKey: "" })} disabled={opBusy}>
+                                    <button
+                                        type="button"
+                                        style={btnSecondary}
+                                        onClick={() => setForm({ name: "", publicKey: "" })}
+                                        disabled={opBusy}
+                                    >
                                         초기화
                                     </button>
                                     <div style={{ flex: 1 }} />
-                                    <button onClick={onLogout} style={btn} disabled={navBusy}>{navBusy ? "이동 중..." : "로그아웃"}</button>
+                                    <button onClick={onLogout} style={btn} disabled={navBusy}>
+                                        {navBusy ? "이동 중..." : "로그아웃"}
+                                    </button>
                                 </div>
                             </form>
                         </section>
 
-                        {/* (디버그용) 원본 보기 토글 */}
+                        {/* (디버그용) 진단 패널 */}
                         <details style={{ marginTop: 8 }}>
-                            <summary>자세히 보기 (디버그)</summary>
+                            <summary>진단 패널</summary>
+                            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1fr 1fr" }}>
+                                <div>
+                                    <h4>/api/ds/user/users/me</h4>
+                                    <pre style={preBox}>{JSON.stringify(diagProfile, null, 2)}</pre>
+                                </div>
+                                <div>
+                                    <h4>/api/ds/user/keys</h4>
+                                    <pre style={preBox}>{JSON.stringify(diagKeys, null, 2)}</pre>
+                                </div>
+                            </div>
+                            <button style={btnSecondary} onClick={loadUserData} disabled={opBusy}>다시 불러오기</button>
+                        </details>
+
+                        {/* (디버그용) 원본 보기 */}
+                        <details style={{ marginTop: 8 }}>
+                            <summary>자세히 보기 (raw state)</summary>
                             <pre style={preBox}>{JSON.stringify({ me, profile, keys }, redactTokens, 2)}</pre>
                         </details>
                     </>
@@ -248,13 +330,11 @@ export default function App() {
     );
 }
 
-const safeText = async (res) => {
-    try { return await res.text(); } catch { return ""; }
-};
+/* ---------------- util for redaction & styles ---------------- */
 
 const redactTokens = (k, v) => {
     const key = (k || "").toLowerCase();
-    if (["token", "access_token", "id_token", "refresh_token"].some(s => key.includes(s))) return "[redacted]";
+    if (["token", "access_token", "id_token", "refresh_token"].some((s) => key.includes(s))) return "[redacted]";
     return v;
 };
 
@@ -262,7 +342,7 @@ const itemRow = { display: "flex", gap: 12, alignItems: "center", padding: "10px
 const fieldRow = { display: "flex", gap: 12, alignItems: "center", marginBottom: 10 };
 const label = { width: 70, fontSize: 14, color: "#444" };
 const input = { flex: 1, border: "1px solid #ddd", borderRadius: 10, padding: "10px 12px", fontSize: 14, outline: "none" };
-const preBox = { background: "#f7f7f7", padding: 12, borderRadius: 8, overflow: "auto", maxHeight: 280 };
+const preBox = { background: "#f7f7f7", padding: 12, borderRadius: 8, overflow: "auto", maxHeight: 320 };
 const btn = { padding: "10px 16px", borderRadius: 12, border: "1px solid #111", background: "#111", color: "#fff", cursor: "pointer" };
 const btnSecondary = { ...btn, background: "#fff", color: "#111" };
 const btnDanger = { ...btn, background: "#fff", color: "#c22", borderColor: "#c22" };
