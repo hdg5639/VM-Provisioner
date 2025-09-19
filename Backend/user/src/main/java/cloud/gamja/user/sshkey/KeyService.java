@@ -20,7 +20,7 @@ public class KeyService {
 
     @Transactional(readOnly = true)
     public List<SshKey> listByUserId(Long userId) {
-        return sshKeyRepository.findByUserId(userId);
+        return sshKeyRepository.findByUser_IdOrderByCreatedAtDesc(userId);
     }
 
     @Transactional

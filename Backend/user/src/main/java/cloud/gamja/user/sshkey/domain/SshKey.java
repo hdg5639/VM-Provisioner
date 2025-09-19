@@ -16,7 +16,8 @@ import java.time.Instant;
 public class SshKey {
     @Id
     @GeneratedValue(strategy=GenerationType.IDENTITY) Long id;
-    @ManyToOne(fetch=FetchType.LAZY) @JoinColumn(name="user_id", nullable=false)
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name="user_id", nullable=false)
     User user;
     @Column(nullable=false) String name;
     @Lob @Column(nullable=false, unique=true) String publicKey; // OpenSSH

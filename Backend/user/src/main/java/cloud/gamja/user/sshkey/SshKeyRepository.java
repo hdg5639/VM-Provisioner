@@ -8,6 +8,6 @@ import java.util.List;
 
 @Repository
 public interface SshKeyRepository extends JpaRepository<SshKey, Long> {
-    List<SshKey> findByUserId(Long userId);
+    List<SshKey> findByUser_IdOrderByCreatedAtDesc(Long userId);
     boolean existsByPublicKey(String publicKey);
 }
