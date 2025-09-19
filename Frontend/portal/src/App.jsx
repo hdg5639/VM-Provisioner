@@ -19,14 +19,23 @@ export default function App() {
 
     /* ---------------- helpers ---------------- */
 
-    // JSON일 때만 안전 파싱
+    // 기존 함수 교체
     async function safeJsonFromResponse(res) {
         const ct = (res.headers.get("content-type") || "").toLowerCase();
-        if (!ct.includes("application/json")) return null;
         const text = await res.text().catch(() => "");
         if (!text) return null;
-        try { return JSON.parse(text); } catch { return null; }
+        // 1) content-type이 json이면 무조건 파싱
+        if (ct.includes("application/json")) {
+            try { return JSON.parse(text); } catch { return null; }
+        }
+        // 2) 헤더가 비었어도, 바디가 { 또는 [ 로 시작하면 JSON 시도
+        const t = text.trim();
+        if (t.startsWith("{") || t.startsWith("[")) {
+            try { return JSON.parse(t); } catch { /* ignore */ }
+        }
+        return null;
     }
+
 
     // 에러 메시지용 텍스트
     const safeText = async (res) => {
@@ -95,13 +104,21 @@ export default function App() {
             setDiagProfile(p);
             setDiagKeys(k);
 
-            if (p.ok && p.json) setProfile(p.json);
-            else if (p.status === 403) setMsg("프로필 권한 거부(403)");
+            if (p.ok) {
+                // p.json이 없으면 헤더 없이 JSON일 수 있어 text 재파싱
+                const pj = p.json ?? (() => { try { return JSON.parse((p.text||"").trim()); } catch { return null; } })();
+                if (pj) setProfile(pj);
+            } else if (p.status === 403) {
+                setMsg("프로필 권한 거부(403)");
+            }
 
-            if (k.ok && Array.isArray(k.json)) {
-                setKeys(k.json);
-            } else if (!k.ok) {
-                setMsg(`키 목록 실패 (${k.status}) ${k.text?.slice(0, 200)}`);
+            if (k.ok) {
+                const kj = Array.isArray(k.json)
+                    ? k.json
+                    : (() => { try { const t=(k.text||"").trim(); return t ? JSON.parse(t) : []; } catch { return []; } })();
+                if (Array.isArray(kj)) setKeys(kj);
+            } else {
+                setMsg(`키 목록 실패 (${k.status}) ${k.text?.slice(0,200)}`);
             }
         } catch (e) {
             console.error(e);
@@ -313,8 +330,12 @@ export default function App() {
 
                         {/* (디버그용) 원본 보기 */}
                         <details style={{ marginTop: 8 }}>
-                            <summary>자세히 보기 (raw state)</summary>
-                            <pre style={preBox}>{JSON.stringify({ me, profile, keys }, redactTokens, 2)}</pre>
+                            <summary>자세히 보기 (raw state + diag)</summary>
+                            <pre style={preBox}>{JSON.stringify(
+                                { me, profile, keys, diag: { profile: diagProfile, keys: diagKeys } },
+                                redactTokens,
+                                2
+                            )}</pre>
                         </details>
                     </>
                 ) : (
