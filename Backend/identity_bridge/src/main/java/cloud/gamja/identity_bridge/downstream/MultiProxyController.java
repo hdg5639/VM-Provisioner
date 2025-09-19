@@ -40,14 +40,14 @@ public class MultiProxyController {
             @RegisteredOAuth2AuthorizedClient("keycloak") OAuth2AuthorizedClient client
     ) {
 
-        // 1) 대상 베이스 URL 찾기
+        // 베이스 URL
         String base = props.getRoutes().get(target);
         if (base == null || base.isBlank()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(("Unknown target: " + target).getBytes());
         }
 
-        // 2) 원래 경로/쿼리 재구성
+        // 원본 경로
         String prefix = "/api/ds/" + target + "/";
         String uri = req.getRequestURI();
         int idx = uri.indexOf(prefix);
@@ -61,7 +61,7 @@ public class MultiProxyController {
         log.info("Proxying {} {} to {}", method, req.getRequestURI(), url);
 
         try {
-            // 3) 요청 헤더 복사 + Bearer 토큰 부착
+            // 요청 헤더 복사 + 토큰 부착
             WebClient.RequestBodySpec spec = webClient
                     .method(method)
                     .uri(url)
@@ -71,15 +71,13 @@ public class MultiProxyController {
                                 Collections.list(req.getHeaders(name)).forEach(v -> h.add(name, v));
                             }
                         });
-                        // Accept-Encoding 문제 해결 - 제거하거나 표준값 사용
-                        // h.set(HttpHeaders.ACCEPT_ENCODING, "identity");
                         h.set(HttpHeaders.ACCEPT_ENCODING, "gzip, deflate");
 
-                        // 사용자 access_token 부착
+                        // 토큰
                         h.setBearerAuth(client.getAccessToken().getTokenValue());
                     });
 
-            // WebClient 사용 방식 개선 - 한 번에 응답과 바디를 처리
+            // 한 번에 응답과 바디를 처리
             Mono<ResponseEntity<byte[]>> responseMono;
 
             if ((method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH)
@@ -100,7 +98,7 @@ public class MultiProxyController {
                         .body(("No response from downstream: " + url).getBytes(StandardCharsets.UTF_8));
             }
 
-            // 응답 로깅 개선
+            // 응답 로깅
             byte[] responseBody = response.getBody();
             int bodyLength = responseBody != null ? responseBody.length : 0;
             log.info("Response received - Status: {}, Body length: {}", response.getStatusCode(), bodyLength);
@@ -127,7 +125,7 @@ public class MultiProxyController {
         return clientResponse.bodyToMono(byte[].class)
                 .defaultIfEmpty(new byte[0])
                 .map(body -> {
-                    // 응답 헤더 구성
+                    // 응답 헤더
                     HttpHeaders outHeaders = new HttpHeaders();
                     clientResponse.headers().asHttpHeaders().forEach((k, v) -> {
                         String lower = k.toLowerCase();
@@ -136,7 +134,7 @@ public class MultiProxyController {
                         }
                     });
 
-                    // 진단용 헤더 추가
+                    // 진단용 헤더
                     outHeaders.set("X-DS-STATUS", String.valueOf(clientResponse.statusCode().value()));
                     outHeaders.set("X-DS-LEN", String.valueOf(body.length));
                     clientResponse.headers().contentType()
