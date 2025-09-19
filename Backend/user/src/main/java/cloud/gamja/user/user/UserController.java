@@ -55,7 +55,6 @@ public class UserController {
 
     @GetMapping("/keys")
     public List<KeyDto> myKeys(JwtAuthenticationToken auth) {
-        // 없으면 생성해두고 빈 목록을 주는 편이 UX/안정성 모두 좋음
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         return keyService.listByUserId(me.getId()).stream()
                 .map(k -> new KeyDto(k.getId(), k.getName(), k.getFingerprint(), k.getPublicKey(), k.getCreatedAt()))
@@ -64,7 +63,6 @@ public class UserController {
 
     @PostMapping("/keys")
     public KeyDto addKey(@Valid @RequestBody CreateKeyReq req, JwtAuthenticationToken auth) throws NoSuchAlgorithmException {
-        // 최초 요청에서도 터지지 않도록 보장
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         SshKey k = keyService.addKeyForUser(me, req.name(), req.publicKey());
         return new KeyDto(k.getId(), k.getName(), k.getFingerprint(), k.getPublicKey(), k.getCreatedAt());
