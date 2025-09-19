@@ -13,47 +13,50 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.nio.file.AccessDeniedException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api")
 public class UserController {
+
     private final UserService userService;
     private final KeyService keyService;
 
-    private String sub(JwtAuthenticationToken auth){
+    private String sub(JwtAuthenticationToken auth) {
         return auth.getToken().getSubject();
     }
-
+    private String email(JwtAuthenticationToken auth) {
+        return auth.getToken().getClaimAsString("email");
+    }
+    private String name(JwtAuthenticationToken auth) {
+        String n = auth.getToken().getClaimAsString("name");
+        return (n != null && !n.isBlank())
+                ? n
+                : auth.getToken().getClaimAsString("preferred_username");
+    }
     private boolean isAdmin(JwtAuthenticationToken auth){
-        return auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_admin"));
+        return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_admin"));
     }
 
-    /** 최초 접근 시에도 보장되도록 me에서 upsert */
     @GetMapping("/users/me")
     public UserDto me(JwtAuthenticationToken auth) {
-        String s = sub(auth);
-        String email = auth.getToken().getClaimAsString("email");
-        String name  = Optional.ofNullable(auth.getToken().getClaimAsString("name"))
-                .orElseGet(() -> auth.getToken().getClaimAsString("preferred_username"));
-        User u = userService.upsertBySub(s, email, name);
+        User u = userService.upsertBySub(sub(auth), email(auth), name(auth));
         return new UserDto(u.getId(), u.getExternalId(), u.getEmail(), u.getDisplayName());
     }
 
     @GetMapping("/users/{id}")
     public UserDto getById(@PathVariable Long id) {
-        User u = userService.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        User u = userService.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new UserDto(u.getId(), u.getExternalId(), u.getEmail(), u.getDisplayName());
     }
 
-    @GetMapping("/api/keys")
+    @GetMapping("/keys")
     public List<KeyDto> myKeys(JwtAuthenticationToken auth) {
-        User me = userService.findBySub(sub(auth)).orElseThrow();
+        // 없으면 생성해두고 빈 목록을 주는 편이 UX/안정성 모두 좋음
+        User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         return keyService.listByUserId(me.getId()).stream()
                 .map(k -> new KeyDto(k.getId(), k.getName(), k.getFingerprint(), k.getPublicKey(), k.getCreatedAt()))
                 .toList();
@@ -61,14 +64,16 @@ public class UserController {
 
     @PostMapping("/keys")
     public KeyDto addKey(@Valid @RequestBody CreateKeyReq req, JwtAuthenticationToken auth) throws NoSuchAlgorithmException {
-        User me = userService.findBySub(sub(auth)).orElseThrow();
+        // 최초 요청에서도 터지지 않도록 보장
+        User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         SshKey k = keyService.addKeyForUser(me, req.name(), req.publicKey());
         return new KeyDto(k.getId(), k.getName(), k.getFingerprint(), k.getPublicKey(), k.getCreatedAt());
     }
 
     @DeleteMapping("/keys/{id}")
-    public void delKey(@PathVariable Long id, JwtAuthenticationToken auth) throws AccessDeniedException {
-        User me = userService.findBySub(sub(auth)).orElseThrow();
+    @ResponseStatus(HttpStatus.NO_CONTENT) // 204
+    public void delKey(@PathVariable Long id, JwtAuthenticationToken auth) {
+        User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         keyService.deleteKey(id, me, isAdmin(auth));
     }
 }

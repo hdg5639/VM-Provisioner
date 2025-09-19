@@ -3,10 +3,10 @@ package cloud.gamja.user.sshkey;
 import cloud.gamja.user.sshkey.domain.SshKey;
 import cloud.gamja.user.user.domain.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.AccessDeniedException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.NoSuchElementException;

@@ -11,11 +11,24 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class UserService {
     private final UserRepository users;
+
     @Transactional
     public User upsertBySub(String sub, String email, String name) {
         return users.findByExternalId(sub).orElseGet(() ->
-                users.save(User.builder().externalId(sub).email(email).displayName(name).build()));
+                users.save(User.builder()
+                        .externalId(sub)
+                        .email(email)
+                        .displayName(name)
+                        .build()));
     }
-    public Optional<User> findById(Long id){ return users.findById(id); }
-    public Optional<User> findBySub(String sub){ return users.findByExternalId(sub); }
+
+    public Optional<User> findById(Long id) {
+        return users.findById(id);
+    }
+
+    @Transactional
+    public User getOrCreateBySub(String sub, String email, String name) {
+        return users.findByExternalId(sub)
+                .orElseGet(() -> upsertBySub(sub, email, name));
+    }
 }
