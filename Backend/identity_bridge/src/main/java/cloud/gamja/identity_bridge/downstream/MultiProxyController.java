@@ -58,51 +58,92 @@ public class MultiProxyController {
         HttpMethod method = HttpMethod.valueOf(req.getMethod());
         WebClient webClient = webClientBuilder.build();
 
-        // 3) 요청 헤더 복사 + Bearer 토큰 부착
-        WebClient.RequestBodySpec spec = webClient
-                .method(method)
-                .uri(url)
-                .headers(h -> {
-                    Collections.list(req.getHeaderNames()).forEach(name -> {
-                        if (!HOP_BY_HOP.contains(name.toLowerCase())) {
-                            Collections.list(req.getHeaders(name)).forEach(v -> h.add(name, v));
+        log.info("Proxying {} {} to {}", method, req.getRequestURI(), url);
+
+        try {
+            // 3) 요청 헤더 복사 + Bearer 토큰 부착
+            WebClient.RequestBodySpec spec = webClient
+                    .method(method)
+                    .uri(url)
+                    .headers(h -> {
+                        Collections.list(req.getHeaderNames()).forEach(name -> {
+                            if (!HOP_BY_HOP.contains(name.toLowerCase())) {
+                                Collections.list(req.getHeaders(name)).forEach(v -> h.add(name, v));
+                            }
+                        });
+                        // Accept-Encoding 문제 해결 - 제거하거나 표준값 사용
+                        // h.set(HttpHeaders.ACCEPT_ENCODING, "identity");
+                        h.set(HttpHeaders.ACCEPT_ENCODING, "gzip, deflate");
+
+                        // 사용자 access_token 부착
+                        h.setBearerAuth(client.getAccessToken().getTokenValue());
+                    });
+
+            // WebClient 사용 방식 개선 - 한 번에 응답과 바디를 처리
+            Mono<ResponseEntity<byte[]>> responseMono;
+
+            if ((method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH)
+                    && body != null && body.length > 0) {
+                log.info("Sending request body with {} bytes", body.length);
+
+                responseMono = spec.bodyValue(body)
+                        .exchangeToMono(this::handleResponse);
+            } else {
+                responseMono = spec.exchangeToMono(this::handleResponse);
+            }
+
+            ResponseEntity<byte[]> response = responseMono.block();
+
+            if (response == null) {
+                log.error("No response from downstream: {}", url);
+                return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                        .body(("No response from downstream: " + url).getBytes(StandardCharsets.UTF_8));
+            }
+
+            // 응답 로깅 개선
+            byte[] responseBody = response.getBody();
+            int bodyLength = responseBody != null ? responseBody.length : 0;
+            log.info("Response received - Status: {}, Body length: {}", response.getStatusCode(), bodyLength);
+
+            if (bodyLength > 0 && bodyLength < 2000) {
+                try {
+                    String bodyContent = new String(responseBody, StandardCharsets.UTF_8);
+                    log.debug("Response body: {}", bodyContent);
+                } catch (Exception e) {
+                    log.debug("Response body is not UTF-8 text, length: {}", bodyLength);
+                }
+            }
+
+            return response;
+
+        } catch (Exception e) {
+            log.error("Error proxying request to {}: {}", url, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(("Error proxying request: " + e.getMessage()).getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    private Mono<ResponseEntity<byte[]>> handleResponse(ClientResponse clientResponse) {
+        return clientResponse.bodyToMono(byte[].class)
+                .defaultIfEmpty(new byte[0])
+                .map(body -> {
+                    // 응답 헤더 구성
+                    HttpHeaders outHeaders = new HttpHeaders();
+                    clientResponse.headers().asHttpHeaders().forEach((k, v) -> {
+                        String lower = k.toLowerCase();
+                        if (!HOP_BY_HOP.contains(lower)) {
+                            outHeaders.put(k, v);
                         }
                     });
-                    h.set(HttpHeaders.ACCEPT_ENCODING, "identity");
-                    // 사용자 access_token 부착
-                    h.setBearerAuth(client.getAccessToken().getTokenValue());
+
+                    // 진단용 헤더 추가
+                    outHeaders.set("X-DS-STATUS", String.valueOf(clientResponse.statusCode().value()));
+                    outHeaders.set("X-DS-LEN", String.valueOf(body.length));
+                    clientResponse.headers().contentType()
+                            .ifPresent(ct -> outHeaders.set("X-DS-CT", ct.toString()));
+
+                    HttpStatus status = HttpStatus.resolve(clientResponse.statusCode().value());
+                    return new ResponseEntity<>(body, outHeaders, status != null ? status : HttpStatus.OK);
                 });
-
-        ClientResponse cr = (
-                (method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH)
-                        && body != null && body.length > 0
-        )
-                ? spec.bodyValue(body).exchangeToMono(Mono::just).block()
-                : spec.exchangeToMono(Mono::just).block();
-
-        if (cr == null) {
-            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
-                    .body(("No response from downstream: " + url).getBytes(StandardCharsets.UTF_8));
-        }
-
-        // 바디를 확실히 흡수
-        byte[] resp = cr.bodyToMono(byte[].class).blockOptional().orElse(new byte[0]);
-
-        log.info("resp: {}", resp);
-
-        // 응답 헤더 구성
-        HttpHeaders out = new HttpHeaders();
-        cr.headers().asHttpHeaders().forEach((k, v) -> {
-            String lower = k.toLowerCase();
-            if (!HOP_BY_HOP.contains(lower)) out.put(k, v);
-        });
-
-        // 진단용 헤더
-        out.set("X-DS-URL", url);
-        out.set("X-DS-LEN", String.valueOf(resp.length));
-        cr.headers().contentType().ifPresent(ct -> out.set("X-DS-CT", ct.toString()));
-
-        HttpStatus status = HttpStatus.resolve(cr.statusCode().value());
-        return new ResponseEntity<>(resp, out, (status != null ? status : HttpStatus.OK));
     }
 }
