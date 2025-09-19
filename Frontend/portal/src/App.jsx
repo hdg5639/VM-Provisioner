@@ -31,7 +31,7 @@ export default function App() {
         try {
             const [pRes, kRes] = await Promise.all([
                 fetch("/api/ds/user/users/me", { credentials: "include", cache: "no-store" }),
-                fetch("/api/ds/user/keys", { credentials: "include", cache: "no-store" }),
+                fetch("/api/ds/keys", { credentials: "include", cache: "no-store" }),
             ]);
             if (pRes.ok) setProfile(await pRes.json());
             if (kRes.ok) setKeys(await kRes.json());
