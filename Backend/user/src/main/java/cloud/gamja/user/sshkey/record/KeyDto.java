@@ -7,4 +7,5 @@ public record KeyDto(
         String name,
         String fingerprint,
         String publicKey,
-        Instant createdAt) {}
+        Instant createdAt
+) {}

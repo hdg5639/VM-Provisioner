@@ -6,5 +6,6 @@ public record CreateKeyReq(
         @NotBlank
         String name,
         @NotBlank
-        String publicKey) {}
+        String publicKey
+) {}
 

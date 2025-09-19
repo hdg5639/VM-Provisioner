@@ -4,4 +4,5 @@ public record UserDto(
         Long id,
         String externalId,
         String email,
-        String displayName) {}
+        String displayName
+) {}
