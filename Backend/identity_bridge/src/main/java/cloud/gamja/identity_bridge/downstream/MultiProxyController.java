@@ -85,10 +85,10 @@ public class MultiProxyController {
                     .body(("No response from downstream: " + url).getBytes(StandardCharsets.UTF_8));
         }
 
-        log.info("cr: {}", cr.bodyToMono(String.class));
-
         // 바디를 확실히 흡수
         byte[] resp = cr.bodyToMono(byte[].class).blockOptional().orElse(new byte[0]);
+
+        log.info("resp: {}", resp);
 
         // 응답 헤더 구성
         HttpHeaders out = new HttpHeaders();
