@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -55,11 +56,11 @@ public class UserController {
     }
 
     @GetMapping(value="/keys", produces=MediaType.APPLICATION_JSON_VALUE)
-    public List<KeyDto> myKeys(JwtAuthenticationToken auth) {
+    public ResponseEntity<List<KeyDto>> myKeys(JwtAuthenticationToken auth) {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
-        return keyService.listByUserId(me.getId()).stream()
+        return ResponseEntity.ok(keyService.listByUserId(me.getId()).stream()
                 .map(k -> new KeyDto(k.getId(), k.getName(), k.getFingerprint(), k.getPublicKey(), k.getCreatedAt()))
-                .toList();
+                .toList());
     }
 
     @PostMapping(value="/keys",
