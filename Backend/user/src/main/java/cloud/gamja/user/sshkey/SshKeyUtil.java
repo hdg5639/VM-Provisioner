@@ -15,7 +15,7 @@ public class SshKeyUtil {
         byte[] sha = MessageDigest.getInstance("SHA-256").digest(decoded);
         return "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(sha);
     }
-    public void validate(String publicKey) {
+    public void validate(String publicKey) throws NoSuchAlgorithmException {
         if (publicKey == null || publicKey.length() > 8192) throw new IllegalArgumentException("Key too large");
         if (!publicKey.startsWith("ssh-") && !publicKey.startsWith("ecdsa-") && !publicKey.startsWith("sk-"))
             throw new IllegalArgumentException("Unsupported key type");
