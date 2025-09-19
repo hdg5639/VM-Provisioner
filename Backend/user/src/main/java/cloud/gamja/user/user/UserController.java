@@ -8,6 +8,7 @@ import cloud.gamja.user.user.domain.User;
 import cloud.gamja.user.user.record.UserDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api")
@@ -56,9 +58,11 @@ public class UserController {
     @GetMapping("/keys")
     public List<KeyDto> myKeys(JwtAuthenticationToken auth) {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
-        return keyService.listByUserId(me.getId()).stream()
+        var keys = keyService.listByUserId(me.getId()).stream()
                 .map(k -> new KeyDto(k.getId(), k.getName(), k.getFingerprint(), k.getPublicKey(), k.getCreatedAt()))
                 .toList();
+        log.info(keys.toString());
+        return keys;
     }
 
     @PostMapping("/keys")
