@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @RestController
@@ -65,29 +66,39 @@ public class MultiProxyController {
                             Collections.list(req.getHeaders(name)).forEach(v -> h.add(name, v));
                         }
                     });
+                    h.set(HttpHeaders.ACCEPT_ENCODING, "identity");
                     // 사용자 access_token 부착
                     h.setBearerAuth(client.getAccessToken().getTokenValue());
                 });
 
-        // 4) 다운스트림 호출 (바디가 있는 메소드만 body 전송)
-        Mono<ClientResponse> call = hasBody(method) && body != null && body.length > 0
-                ? spec.bodyValue(body).exchangeToMono(Mono::just)
-                : spec.exchangeToMono(Mono::just);
+        ClientResponse cr = (
+                (method == HttpMethod.POST || method == HttpMethod.PUT || method == HttpMethod.PATCH)
+                        && body != null && body.length > 0
+        )
+                ? spec.bodyValue(body).exchangeToMono(Mono::just).block()
+                : spec.exchangeToMono(Mono::just).block();
 
-        ClientResponse cr = call.block();
+        if (cr == null) {
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                    .body(("No response from downstream: " + url).getBytes(StandardCharsets.UTF_8));
+        }
 
-        // 5) 응답 헤더/바디/상태 그대로 브릿지
+        // 바디를 확실히 흡수
+        byte[] resp = cr.bodyToMono(byte[].class).blockOptional().orElse(new byte[0]);
+
+        // 응답 헤더 구성
         HttpHeaders out = new HttpHeaders();
-        Objects.requireNonNull(cr).headers().asHttpHeaders().forEach((k, v) -> {
-            if (!HOP_BY_HOP.contains(k.toLowerCase())) out.put(k, v);
+        cr.headers().asHttpHeaders().forEach((k, v) -> {
+            String lower = k.toLowerCase();
+            if (!HOP_BY_HOP.contains(lower)) out.put(k, v);
         });
 
-        byte[] resp = cr.bodyToMono(byte[].class).blockOptional().orElse(new byte[0]);
+        // 진단용 헤더
+        out.set("X-DS-URL", url);
+        out.set("X-DS-LEN", String.valueOf(resp.length));
+        cr.headers().contentType().ifPresent(ct -> out.set("X-DS-CT", ct.toString()));
+
         HttpStatus status = HttpStatus.resolve(cr.statusCode().value());
         return new ResponseEntity<>(resp, out, (status != null ? status : HttpStatus.OK));
-    }
-
-    private boolean hasBody(HttpMethod m) {
-        return m == HttpMethod.POST || m == HttpMethod.PUT || m == HttpMethod.PATCH;
     }
 }
