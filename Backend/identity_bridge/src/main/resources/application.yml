@@ -59,4 +59,4 @@ springdoc:
 
 downstream:
   routes:
-    vm: ${VM_SERVICE_URI}
+    user: ${USER_SERVICE_URI}
