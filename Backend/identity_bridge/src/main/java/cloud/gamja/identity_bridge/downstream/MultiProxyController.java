@@ -2,6 +2,7 @@ package cloud.gamja.identity_bridge.downstream;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Mono;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequiredArgsConstructor
 public class MultiProxyController {
@@ -82,6 +84,8 @@ public class MultiProxyController {
             return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                     .body(("No response from downstream: " + url).getBytes(StandardCharsets.UTF_8));
         }
+
+        log.info(cr.toString());
 
         // 바디를 확실히 흡수
         byte[] resp = cr.bodyToMono(byte[].class).blockOptional().orElse(new byte[0]);
