@@ -9,6 +9,7 @@ import cloud.gamja.user.user.record.UserDto;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -40,7 +41,7 @@ public class UserController {
         return auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_admin"));
     }
 
-    @GetMapping("/users/me")
+    @GetMapping(value="/users/me", produces= MediaType.APPLICATION_JSON_VALUE)
     public UserDto me(JwtAuthenticationToken auth) {
         User u = userService.upsertBySub(sub(auth), email(auth), name(auth));
         return new UserDto(u.getId(), u.getExternalId(), u.getEmail(), u.getDisplayName());
@@ -53,7 +54,7 @@ public class UserController {
         return new UserDto(u.getId(), u.getExternalId(), u.getEmail(), u.getDisplayName());
     }
 
-    @GetMapping("/keys")
+    @GetMapping(value="/keys", produces=MediaType.APPLICATION_JSON_VALUE)
     public List<KeyDto> myKeys(JwtAuthenticationToken auth) {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         return keyService.listByUserId(me.getId()).stream()
@@ -61,7 +62,10 @@ public class UserController {
                 .toList();
     }
 
-    @PostMapping("/keys")
+    @PostMapping(value="/keys",
+            consumes=MediaType.APPLICATION_JSON_VALUE,
+            produces=MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
     public KeyDto addKey(@Valid @RequestBody CreateKeyReq req, JwtAuthenticationToken auth) throws NoSuchAlgorithmException {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         SshKey k = keyService.addKeyForUser(me, req.name(), req.publicKey());
