@@ -53,7 +53,7 @@ public class UserController {
         return new UserDto(u.getId(), u.getExternalId(), u.getEmail(), u.getDisplayName());
     }
 
-    @GetMapping("/users/keys")
+    @GetMapping("/keys")
     public List<KeyDto> myKeys(JwtAuthenticationToken auth) {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         return keyService.listByUserId(me.getId()).stream()
@@ -61,14 +61,14 @@ public class UserController {
                 .toList();
     }
 
-    @PostMapping("/users/keys")
+    @PostMapping("/keys")
     public KeyDto addKey(@Valid @RequestBody CreateKeyReq req, JwtAuthenticationToken auth) throws NoSuchAlgorithmException {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         SshKey k = keyService.addKeyForUser(me, req.name(), req.publicKey());
         return new KeyDto(k.getId(), k.getName(), k.getFingerprint(), k.getPublicKey(), k.getCreatedAt());
     }
 
-    @DeleteMapping("/users/keys/{id}")
+    @DeleteMapping("/keys/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT) // 204
     public void delKey(@PathVariable Long id, JwtAuthenticationToken auth) {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
