@@ -14,11 +14,15 @@ import java.time.Instant;
 @Builder
 public class User {
     @Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY) Long id;
-    @Column(nullable=false, unique=true, name="external_id") String externalId; // Keycloak sub
-    String email;
-    String displayName;
-    Instant createdAt; Instant updatedAt;
+    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    private Long id;
+    @Column(nullable=false, unique=true, name="external_id")
+    private String externalId; // Keycloak sub
+    private String email;
+    private String displayName;
+    private Instant createdAt;
+    private Instant updatedAt;
+
     @PrePersist void onC(){createdAt=updatedAt=Instant.now();}
     @PreUpdate  void onU(){updatedAt=Instant.now();}
 }

@@ -15,14 +15,19 @@ import java.time.Instant;
 @Builder
 public class SshKey {
     @Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY) Long id;
+    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    private Long id;
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="user_id", nullable=false)
-    User user;
-    @Column(nullable=false) String name;
-    @Lob @Column(nullable=false, unique=true) String publicKey; // OpenSSH
-    @Column(nullable=false, unique=true) String fingerprint;   // SHA256:...
-    Instant createdAt;
+    private User user;
+    @Column(nullable=false)
+    private String name;
+    @Lob @Column(nullable=false, unique=true)
+    private String publicKey; // OpenSSH
+    @Column(nullable=false, unique=true)
+    private String fingerprint;   // SHA256
+    private Instant createdAt;
+
     @PrePersist
     void onC(){createdAt= Instant.now();}
 }
