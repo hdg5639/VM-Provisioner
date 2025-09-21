@@ -48,15 +48,6 @@ server:
 
   forward-headers-strategy: framework
 
-
-springdoc:
-  swagger-ui:
-    path: /id/docs
-    operations-sorter: method
-
-  api-docs:
-    path: /id/api-docs
-
 downstream:
   routes:
     user: ${USER_SERVICE_URI}

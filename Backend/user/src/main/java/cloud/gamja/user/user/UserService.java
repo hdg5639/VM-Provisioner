@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +23,7 @@ public class UserService {
                         .build()));
     }
 
-    public Optional<User> findById(Long id) {
+    public Optional<User> findById(UUID id) {
         return users.findById(id);
     }
 

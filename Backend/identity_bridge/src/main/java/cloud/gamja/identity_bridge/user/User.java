@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "users", indexes = {
@@ -16,8 +17,10 @@ import java.time.Instant;
 @Builder
 public class User {
 
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Id
+    @GeneratedValue(strategy=GenerationType.UUID)
+    @Column(name = "id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    private UUID id;
 
     @Column(nullable = false, unique = true, name = "external_id")
     private String externalId; // keycloak

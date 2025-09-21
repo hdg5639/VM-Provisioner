@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequiredArgsConstructor
@@ -49,7 +50,7 @@ public class UserController {
     }
 
     @GetMapping("/users/{id}")
-    public UserDto getById(@PathVariable Long id) {
+    public UserDto getById(@PathVariable UUID id) {
         User u = userService.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         return new UserDto(u.getId(), u.getExternalId(), u.getEmail(), u.getDisplayName());
@@ -75,7 +76,7 @@ public class UserController {
 
     @DeleteMapping("/keys/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT) // 204
-    public void delKey(@PathVariable Long id, JwtAuthenticationToken auth) {
+    public void delKey(@PathVariable UUID id, JwtAuthenticationToken auth) {
         User me = userService.getOrCreateBySub(sub(auth), email(auth), name(auth));
         keyService.deleteKey(id, me, isAdmin(auth));
     }

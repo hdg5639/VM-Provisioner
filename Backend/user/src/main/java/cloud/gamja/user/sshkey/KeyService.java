@@ -11,6 +11,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -19,7 +20,7 @@ public class KeyService {
     private final SshKeyUtil util;
 
     @Transactional(readOnly = true)
-    public List<SshKey> listByUserId(Long userId) {
+    public List<SshKey> listByUserId(UUID userId) {
         return sshKeyRepository.findByUser_IdOrderByCreatedAtDesc(userId);
     }
 
@@ -34,7 +35,7 @@ public class KeyService {
     }
 
     @Transactional
-    public void deleteKey(Long keyId, User requester, boolean isAdmin) throws AccessDeniedException {
+    public void deleteKey(UUID keyId, User requester, boolean isAdmin) throws AccessDeniedException {
         SshKey k = sshKeyRepository.findById(keyId)
                 .orElseThrow(() -> new NoSuchElementException("Not found"));
         if (!isAdmin && !Objects.equals(k.getUser().getId(), requester.getId()))

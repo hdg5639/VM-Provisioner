@@ -1,7 +1,9 @@
 package cloud.gamja.user.user.record;
 
+import java.util.UUID;
+
 public record UserDto(
-        Long id,
+        UUID id,
         String externalId,
         String email,
         String displayName
