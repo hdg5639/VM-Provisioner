@@ -25,6 +25,7 @@ spring:
         show_sql: true
         jdbc:
           time_zone: Asia/Seoul
+        dialect: ${DATABASE_DIALECT}
 
   security:
     oauth2:
