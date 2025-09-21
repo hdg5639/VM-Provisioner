@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name="ssh_keys")
+@Table(name = "ssh_keys")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -22,13 +22,17 @@ public class SshKey {
     @Column(name = "id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
     @JdbcTypeCode(SqlTypes.BINARY)
     private UUID id;
+
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="user_id", nullable=false)
     private User user;
+
     @Column(nullable=false)
     private String name;
+
     @Lob @Column(nullable=false, unique=true)
     private String publicKey; // OpenSSH
+
     @Column(nullable=false, unique=true)
     private String fingerprint;   // SHA256
     private Instant createdAt;

@@ -9,7 +9,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name="users", indexes=@Index(name="uk_users_external_id", columnList="externalId", unique=true))
+@Table(name = "users", indexes = {
+        @Index(name="uk_users_external_id", columnList="externalId", unique=true)
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,6 +23,7 @@ public class User {
     @Column(name = "id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
     @JdbcTypeCode(SqlTypes.BINARY)
     private UUID id;
+
     @Column(nullable=false, unique=true, name="external_id")
     private String externalId; // Keycloak sub
     private String email;
