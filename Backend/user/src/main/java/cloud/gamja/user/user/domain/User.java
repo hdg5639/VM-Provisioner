@@ -2,6 +2,8 @@ package cloud.gamja.user.user.domain;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -17,6 +19,7 @@ public class User {
     @Id
     @GeneratedValue(strategy=GenerationType.UUID)
     @Column(name = "id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.BINARY)
     private UUID id;
     @Column(nullable=false, unique=true, name="external_id")
     private String externalId; // Keycloak sub

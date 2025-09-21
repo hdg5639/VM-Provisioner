@@ -3,6 +3,8 @@ package cloud.gamja.user.sshkey.domain;
 import cloud.gamja.user.user.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -18,6 +20,7 @@ public class SshKey {
     @Id
     @GeneratedValue(strategy=GenerationType.UUID)
     @Column(name = "id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.BINARY)
     private UUID id;
     @ManyToOne(fetch=FetchType.LAZY)
     @JoinColumn(name="user_id", nullable=false)
