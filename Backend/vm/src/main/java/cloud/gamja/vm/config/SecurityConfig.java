@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .securityMatcher(new RegexRequestMatcher("^/api/.*", null))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(a -> a
-                        .requestMatchers(new RegexRequestMatcher("^/api/users/me$", "GET")).authenticated()
+                        .requestMatchers(new RegexRequestMatcher("^/api/test$", "GET")).authenticated()
 
                         .requestMatchers(new RegexRequestMatcher("^/api/users/\\d+$", "GET")).hasRole("admin")
 
