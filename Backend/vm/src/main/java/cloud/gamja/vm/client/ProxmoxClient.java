@@ -18,9 +18,9 @@ public class ProxmoxClient {
 
     @Value("${custom.proxmox.base-url}")
     private String baseUrl;
-    @Value("${custom.proxmox.api-token-id}")
+    @Value("${custom.proxmox.token-id}")
     private String tokenId;
-    @Value("${custom.proxmox.api-token}")
+    @Value("${custom.proxmox.token-value}")
     private String tokenValue;
 
     public Mono<Map<String,Object>> getNodes() {
