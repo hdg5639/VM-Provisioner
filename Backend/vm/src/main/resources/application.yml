@@ -44,3 +44,7 @@ custom:
   user:
     audience: ${USER_SERVICE_AUD}
     base-url: ${USER_SERVICE_BASE_URL}
+  proxmox:
+    base-url: ${PROXMOX_BASE_URL}
+    token-id: ${PROXMOX_TOKEN_ID}
+    token-value: ${PROXMOX_TOKEN_VALUE}

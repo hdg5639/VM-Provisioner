@@ -3,32 +3,32 @@
     {
       "name": "custom.audience",
       "type": "java.lang.String",
-      "description": "Description for custom.audience."
+      "description": "Expected JWT audience for this service (used in security checks)."
     },
     {
       "name": "custom.kc.token-endpoint",
       "type": "java.lang.String",
-      "description": "Description for custom.kc.token-endpoint."
+      "description": "Keycloak token endpoint URL for token exchange and client credentials."
     },
     {
       "name": "custom.kc.client-id",
       "type": "java.lang.String",
-      "description": "Description for custom.kc.client-id."
+      "description": "Confidential client ID used by this service to talk to Keycloak."
     },
     {
       "name": "custom.kc.client-secret",
       "type": "java.lang.String",
-      "description": "Description for custom.kc.client-secret."
+      "description": "Secret for the above client. Inject via env/secret only."
     },
     {
-      "name": "custom.vm.audience",
+      "name": "custom.user.audience",
       "type": "java.lang.String",
-      "description": "Description for custom.vm.audience."
+      "description": "Audience to request when exchanging tokens to call user-service."
     },
     {
       "name": "custom.vm.base-url",
       "type": "java.lang.String",
-      "description": "Description for custom.vm.base-url."
+      "description": "Base URL for vm-orchestrator."
     }
   ]
 }

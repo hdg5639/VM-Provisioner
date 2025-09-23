@@ -3,32 +3,47 @@
     {
       "name": "custom.audience",
       "type": "java.lang.String",
-      "description": "Description for custom.audience."
+      "description": "Expected JWT audience for this service (used in security checks)."
     },
     {
       "name": "custom.kc.token-endpoint",
       "type": "java.lang.String",
-      "description": "Description for custom.kc.token-endpoint."
+      "description": "Keycloak token endpoint URL for token exchange and client credentials."
     },
     {
       "name": "custom.kc.client-id",
       "type": "java.lang.String",
-      "description": "Description for custom.kc.client-id."
+      "description": "Confidential client ID used by this service to talk to Keycloak."
     },
     {
       "name": "custom.kc.client-secret",
       "type": "java.lang.String",
-      "description": "Description for custom.kc.client-secret."
+      "description": "Secret for the above client. Inject via env/secret only."
     },
     {
       "name": "custom.user.audience",
       "type": "java.lang.String",
-      "description": "Description for custom.user.audience."
+      "description": "Audience to request when exchanging tokens to call user-service."
     },
     {
       "name": "custom.user.base-url",
       "type": "java.lang.String",
-      "description": "Description for custom.user.base-url."
+      "description": "Base URL for user-service."
+    },
+    {
+      "name": "custom.proxmox.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL for Proxmox."
+    },
+    {
+      "name": "custom.proxmox.token-value",
+      "type": "java.lang.String",
+      "description": "API token value for proxmox."
+    },
+    {
+      "name": "custom.proxmox.token-id",
+      "type": "java.lang.String",
+      "description": "API token id for proxmox."
     }
   ]
 }
