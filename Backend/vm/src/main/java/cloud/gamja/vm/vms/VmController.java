@@ -12,7 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/vm")
+@RequestMapping("/api")
 public class VmController {
     private final VmService vmService;
 
