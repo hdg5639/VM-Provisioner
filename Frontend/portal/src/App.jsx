@@ -225,7 +225,7 @@ export default function App() {
         setVmBusy(true);
         setVmErr("");
         try {
-            const d = await fetchDiag("/api/ds/vm");
+            const d = await fetchDiag("/api/ds/vm/test");
             // 그대로 JSON 표시: JSON이면 그대로, 아니면 파싱 시도
             let body = null;
             if (d.json != null) body = d.json;

@@ -20,7 +20,7 @@ public class VmController {
         return auth.getToken().getSubject();
     }
 
-    @GetMapping
+    @GetMapping("/test")
     public Mono<Map<String, Object>> testCall() {
         return vmService.callTest();
     }
