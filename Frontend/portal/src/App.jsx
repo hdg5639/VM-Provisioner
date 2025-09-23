@@ -15,6 +15,11 @@ export default function App() {
     const [diagProfile, setDiagProfile] = useState(null);
     const [diagKeys, setDiagKeys] = useState(null);
 
+    // VM API 테스트 상태
+    const [vmBusy, setVmBusy] = useState(false);
+    const [vmJson, setVmJson] = useState(null);    // /api/ds/vm 응답 JSON
+    const [vmErr, setVmErr] = useState("");        // 오류 메시지
+
     const ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
     /* ---------------- helpers ---------------- */
@@ -215,6 +220,28 @@ export default function App() {
         }
     }
 
+    // ★ VM API: GET /api/ds/vm
+    async function getVm() {
+        setVmBusy(true);
+        setVmErr("");
+        try {
+            const d = await fetchDiag("/api/ds/vm");
+            // 그대로 JSON 표시: JSON이면 그대로, 아니면 파싱 시도
+            let body = null;
+            if (d.json != null) body = d.json;
+            else if ((d.text || "").trim()) {
+                try { body = JSON.parse((d.text || "").trim()); } catch { body = null; }
+            }
+            setVmJson(body);
+            if (!d.ok) setVmErr(`요청 실패 (${d.status})`);
+        } catch (e) {
+            console.error(e);
+            setVmErr("요청 중 오류");
+        } finally {
+            setVmBusy(false);
+        }
+    }
+
     /* ---------------- render ---------------- */
 
     if (loading) return <div>로딩중...</div>;
@@ -310,6 +337,20 @@ export default function App() {
                                     </button>
                                 </div>
                             </form>
+                        </section>
+
+                        {/* ★ VM API 테스트: /api/ds/vm */}
+                        <section style={{ marginBottom: 24 }}>
+                            <h3 style={{ margin: "8px 0" }}>VM API 테스트</h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                                <button onClick={getVm} style={btn} disabled={vmBusy || opBusy || navBusy}>
+                                    {vmBusy ? "요청 중..." : "GET /api/ds/vm"}
+                                </button>
+                                {vmErr && <span style={{ color: "#c22" }}>{vmErr}</span>}
+                            </div>
+                            <pre style={preBox}>
+{vmJson != null ? JSON.stringify(vmJson, null, 2) : "아직 요청하지 않았습니다."}
+                            </pre>
                         </section>
 
                         {/* (디버그용) 진단 패널 */}
