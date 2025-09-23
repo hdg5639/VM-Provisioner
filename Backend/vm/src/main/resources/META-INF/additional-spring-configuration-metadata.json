@@ -21,14 +21,14 @@
       "description": "Description for custom.kc.client-secret."
     },
     {
-      "name": "custom.vm.audience",
+      "name": "custom.user.audience",
       "type": "java.lang.String",
-      "description": "Description for custom.vm.audience."
+      "description": "Description for custom.user.audience."
     },
     {
-      "name": "custom.vm.base-url",
+      "name": "custom.user.base-url",
       "type": "java.lang.String",
-      "description": "Description for custom.vm.base-url."
+      "description": "Description for custom.user.base-url."
     }
   ]
 }
