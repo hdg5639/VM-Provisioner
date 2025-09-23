@@ -54,3 +54,4 @@ server:
 downstream:
   routes:
     user: ${USER_SERVICE_URI}
+    vm: ${VM_SERVICE_URI}
