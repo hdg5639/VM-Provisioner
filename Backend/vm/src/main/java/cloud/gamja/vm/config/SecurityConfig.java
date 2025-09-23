@@ -56,7 +56,7 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Value("${aud-name}")
+    @Value("${custom.audience}")
     private String audName;
 
     @Bean
