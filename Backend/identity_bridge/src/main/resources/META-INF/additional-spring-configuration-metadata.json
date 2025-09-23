@@ -1,0 +1,28 @@
+{
+  "properties": [
+    {
+      "name": "downstream.auth.token-endpoint",
+      "type": "java.lang.String",
+      "description": "Description for downstream.auth.token-endpoint."
+    },
+    {
+      "name": "downstream.auth.client-id",
+      "type": "java.lang.String",
+      "description": "Description for downstream.auth.client-id."
+    },
+    {
+      "name": "downstream.auth.client-secret",
+      "type": "java.lang.String",
+      "description": "Description for downstream.auth.client-secret."
+    },
+    {
+      "name": "downstream.auth.aud.user",
+      "type": "java.lang.String",
+      "description": "Description for downstream.auth.aud.user."
+    },
+    {
+      "name": "downstream.auth.aud.vm",
+      "type": "java.lang.String",
+      "description": "Description for downstream.auth.aud.vm."
+    }
+  ] }
