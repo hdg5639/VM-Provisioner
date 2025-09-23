@@ -1,0 +1,8 @@
+{
+  "properties": [
+    {
+      "name": "aud-name",
+      "type": "java.lang.String",
+      "description": "Audience name."
+  }
+] }
