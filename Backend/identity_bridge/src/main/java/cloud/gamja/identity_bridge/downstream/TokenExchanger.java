@@ -19,7 +19,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TokenExchanger {
 
-    private final WebClient web = WebClient.builder().build();
+    private final WebClient webClient = WebClient.builder().build();
 
     @Value("${downstream.auth.token-endpoint}") String tokenEndpoint;
     @Value("${downstream.auth.client-id}")      String clientId;
@@ -46,7 +46,7 @@ public class TokenExchanger {
             form.add("scope", scope);
         }
 
-        return web.post()
+        return webClient.post()
                 .uri(tokenEndpoint)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData(form))
