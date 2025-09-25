@@ -1,5 +1,8 @@
 package cloud.gamja.vm.client;
 
+import cloud.gamja.vm.client.enums.Audience;
+import cloud.gamja.vm.client.record.VmCreate;
+import cloud.gamja.vm.vms.enums.VmType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -15,9 +18,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ProxmoxClient {
     private final WebClient webClient = WebClient.builder().build();
+    private final UserServiceClient userServiceClient;
+    private final TokenExchangeClient tokenExchangeClient;
 
-    @Value("${custom.proxmox.base-url}")
-    private String baseUrl;
     @Value("${custom.proxmox.token-id}")
     private String tokenId;
     @Value("${custom.proxmox.token-value}")
@@ -25,10 +28,79 @@ public class ProxmoxClient {
 
     public Mono<Map<String,Object>> getNodes() {
         return webClient.get()
-                .uri(baseUrl + "/nodes")
+                .uri("/nodes")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<>() {});
+    }
+
+    private Mono<Map<String,Object>> createVmRequest(VmCreate vm) {
+        return webClient.post()
+                    .uri(uriBuilder ->
+                            uriBuilder.path("/nodes/pve/qemu")
+                                    .queryParam("vmid", vm.getVmid())
+                                    .queryParam("name", vm.getName())
+                                    .queryParam("cores", vm.getCores())
+                                    .queryParam("cpu", vm.getCpu())
+                                    .queryParam("cpulimit", vm.getCpulimit())
+                                    .queryParam("cpuunits", vm.getCpuunits())
+                                    .queryParam("affinity", vm.getAffinity())
+                                    .queryParam("memory", vm.getMemory())
+                                    .queryParam("ostype", vm.getOstype())
+                                    .queryParam("agent", vm.getAgent())
+                                    .queryParam("scsihw", vm.getScsihw())
+                                    .queryParam("scsi0", vm.getScsi0())
+                                    .queryParam("net0", vm.getNet0())
+                                    .queryParam("ide2", vm.getIde2())
+                                    .queryParam("ciuser", vm.getCiuser())
+                                    .queryParam("sshkeys", vm.getSshkeys())
+                                    .queryParam("ipconfig0", vm.getIpconfig0())
+                                    .queryParam("nameserver", vm.getNameserver())
+                    .build())
+                    .header(HttpHeaders.AUTHORIZATION,
+                            "PVEAPIToken=" + tokenId + "=" + tokenValue)
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<>() {});
+    }
+
+    public Mono<Map<String,Object>> createVmOptimize(
+            String subjectToken, String userId, VmType vmType, String name, Integer disk, String ide) {
+        Mono<Integer> vmIdMono = nextId().map(response -> response.get("data"));
+        Mono<VmCreate> vmTemplateMono = Mono.fromCallable(() -> {
+            VmCreate vm = new VmCreate(vmType);
+            vm.setName(name);
+            vm.setScsi0("local-lvm:" + disk);
+            vm.setIde2("local:iso/" + ide + ",media=cdrom");
+            vm.setCiuser(getCiuser(ide));
+            return vm;
+        });
+        Mono<String> userSshKey =
+                userServiceClient.getSshKeys(tokenExchangeClient.exchange(subjectToken, Audience.USER), userId)
+                        .map(response -> response.get(0).publicKey());
+
+        return Mono.zip(vmIdMono, vmTemplateMono, userSshKey)
+                .map(tuple -> {
+                    VmCreate vm = tuple.getT2();
+                    vm.setVmid(tuple.getT1());
+                    vm.setSshkeys(tuple.getT3());
+                    return vm;
+                })
+                .flatMap(this::createVmRequest);
+    }
+
+    private Mono<Map<String, Integer>> nextId() {
+        return webClient.get()
+                .uri("/cluster/nextid")
+                .header(HttpHeaders.AUTHORIZATION,
+                        "PVEAPIToken=" + tokenId + "=" + tokenValue)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<>() {});
+    }
+
+    private String getCiuser(String ide) {
+        if (ide.contains("ubuntu"))
+            return "ubuntu";
+        return "default";
     }
 }
