@@ -81,7 +81,7 @@ public class ProxmoxClient {
                 .onErrorMap(e -> new HttpTimeoutException("NextId failed: " + e.getMessage()));
         log.info("vmId end");
         // VmTemplate
-        log.info("vmTemplate start");
+        log.info("vmTemplate start.");
         Mono<VmCreate> vmTemplateMono = Mono.defer(() -> {
             VmCreate vm = new VmCreate(vmType);
             vm.setName(name);
