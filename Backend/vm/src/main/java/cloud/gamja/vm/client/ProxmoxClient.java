@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -22,11 +24,10 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class ProxmoxClient {
-    private final WebClient webClient = WebClient.builder().build();
+    private final WebClient webClient;
     private final UserServiceClient userServiceClient;
     private final TokenExchangeClient tokenExchangeClient;
-    @Value("${custom.proxmox.base-url}")
-    String baseUrl;
+
     @Value("${custom.proxmox.token-id}")
     private String tokenId;
     @Value("${custom.proxmox.token-value}")
@@ -34,7 +35,7 @@ public class ProxmoxClient {
 
     public Mono<Map<String,Object>> getNodes() {
         return webClient.get()
-                .uri(baseUrl + "/nodes")
+                .uri("nodes")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
@@ -42,34 +43,32 @@ public class ProxmoxClient {
     }
 
     private Mono<Map<String,Object>> createVmRequest(VmCreate vm) {
-        log.info("Creating VM {}", vm);
+        MultiValueMap<String,String> q = new LinkedMultiValueMap<>();
+        q.add("vmid", String.valueOf(vm.getVmid()));
+        q.add("name", vm.getName());
+        q.add("cores", String.valueOf(vm.getCores()));
+        q.add("cpu", vm.getCpu());
+        q.add("cpulimit", String.valueOf(vm.getCpulimit()));
+        q.add("cpuunits", String.valueOf(vm.getCpuunits()));
+        q.add("affinity", vm.getAffinity());
+        q.add("memory", vm.getMemory());
+        q.add("ostype", vm.getOstype());
+        q.add("pool", vm.getPool());
+        q.add("agent", vm.getAgent());
+        q.add("scsihw", vm.getScsihw());
+        q.add("scsi0", vm.getScsi0());
+        q.add("net0", vm.getNet0());
+        q.add("ide2", vm.getIde2());
+        q.add("ciuser", vm.getCiuser());
+        q.add("sshkeys", vm.getSshkeys());
+        q.add("ipconfig0", vm.getIpconfig0());
+        q.add("nameserver", vm.getNameserver());
+
         return webClient.post()
-                    .uri(uriBuilder ->
-                            uriBuilder.path("/nodes/pve/qemu")
-                                    .queryParam("vmid", vm.getVmid())
-                                    .queryParam("name", vm.getName())
-                                    .queryParam("cores", vm.getCores())
-                                    .queryParam("cpu", vm.getCpu())
-                                    .queryParam("cpulimit", vm.getCpulimit())
-                                    .queryParam("cpuunits", vm.getCpuunits())
-                                    .queryParam("affinity", vm.getAffinity())
-                                    .queryParam("memory", vm.getMemory())
-                                    .queryParam("ostype", vm.getOstype())
-                                    .queryParam("pool", vm.getPool())
-                                    .queryParam("agent", vm.getAgent())
-                                    .queryParam("scsihw", vm.getScsihw())
-                                    .queryParam("scsi0", vm.getScsi0())
-                                    .queryParam("net0", vm.getNet0())
-                                    .queryParam("ide2", vm.getIde2())
-                                    .queryParam("ciuser", vm.getCiuser())
-                                    .queryParam("sshkeys", vm.getSshkeys())
-                                    .queryParam("ipconfig0", vm.getIpconfig0())
-                                    .queryParam("nameserver", vm.getNameserver())
-                    .build())
-                    .header(HttpHeaders.AUTHORIZATION,
-                            "PVEAPIToken=" + tokenId + "=" + tokenValue)
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<>() {});
+                .uri(uri -> uri.path("/nodes/{node}/qemu").queryParams(q).build(vm.getNode()))
+                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
     public Mono<Map<String,Object>> createVmOptimize(
@@ -112,7 +111,7 @@ public class ProxmoxClient {
 
     private Mono<Map<String, Integer>> nextId() {
         return webClient.get()
-                .uri(baseUrl + "/cluster/nextid")
+                .uri("cluster/nextid")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
