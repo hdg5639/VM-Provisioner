@@ -9,9 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -67,8 +69,20 @@ public class ProxmoxClient {
         return webClient.post()
                 .uri(uri -> uri.path("/nodes/{node}/qemu").queryParams(q).build(vm.getNode()))
                 .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
-                .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<>() {});
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData(q))
+                .exchangeToMono(res -> {
+                    if (res.statusCode().is2xxSuccessful()) {
+                        return res.bodyToMono(new ParameterizedTypeReference<>(){});
+                    }
+                    // 애러 바디 추출
+                    return res.bodyToMono(String.class)
+                            .defaultIfEmpty("")
+                            .flatMap(body -> {
+                                log.error("PVE create VM 400 body: {}", body);
+                                return Mono.error(new IllegalStateException("PVE 400: " + body));
+                            });
+                });
     }
 
     public Mono<Map<String,Object>> createVmOptimize(
