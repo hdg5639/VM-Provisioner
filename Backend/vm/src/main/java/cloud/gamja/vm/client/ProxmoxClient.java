@@ -93,26 +93,9 @@ public class ProxmoxClient {
         log.info("vmTemplate end");
         // SSH key
         log.info("ssh key start");
-        log.info("Token Exchange start");
-        Mono<String> exchangedToken = tokenExchangeClient.exchange(subjectToken, Audience.USER)
-                .map((response) -> response.get("access_token"));
-        log.info("Token Exchange end");
-        log.info("Find public key start");
-        Mono<String> sshKey = Mono.zip(exchangedToken, Mono.just(userId))
-                .flatMap(tuple -> userServiceClient.getSshKeys(tuple.getT1(), tuple.getT2())
-                        .map(response -> {
-                            KeyDto key = response.stream()
-                                    .filter(v -> v.fingerprint().equals(fingerprint))
-                                    .findFirst()
-                                    .orElse(null);
-                            return key!=null?key.publicKey():null;
-                        })
-                        .flatMap(pk -> pk != null
-                                ? Mono.just(pk)
-                                :Mono.error(new IllegalArgumentException("SshKey not found"))
-                        )
-                );
-        log.info("Find public key end");
+        Mono<String> sshKey = tokenExchangeClient.exchange(subjectToken, Audience.USER)
+                .map((response) -> response.get("access_token"))
+                .flatMap(token -> findByFingerprint(token, userId, fingerprint));
         log.info("sshKey end");
 
         log.info("Create vm start");
@@ -139,5 +122,17 @@ public class ProxmoxClient {
         if (ide.contains("ubuntu"))
             return "ubuntu";
         return "default";
+    }
+
+    private Mono<String> findByFingerprint(String userAccessToken, String userId, String fingerprint) {
+        return userServiceClient.getSshKeys(userAccessToken, userId)
+                .map(list -> list.stream()
+                        .filter(k -> fingerprint.equals(k.fingerprint()))
+                        .findFirst()
+                        .map(KeyDto::publicKey)
+                        .orElse(null))
+                .flatMap(pk -> pk != null
+                        ? Mono.just(pk)
+                        : Mono.error(new IllegalArgumentException("Fingerprint not found: " + fingerprint)));
     }
 }
