@@ -8,10 +8,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.net.http.HttpTimeoutException;
+import java.time.Duration;
 import java.util.Map;
 
 
@@ -49,6 +53,7 @@ public class ProxmoxClient {
                                     .queryParam("affinity", vm.getAffinity())
                                     .queryParam("memory", vm.getMemory())
                                     .queryParam("ostype", vm.getOstype())
+                                    .queryParam("pool", vm.getPool())
                                     .queryParam("agent", vm.getAgent())
                                     .queryParam("scsihw", vm.getScsihw())
                                     .queryParam("scsi0", vm.getScsi0())
@@ -68,15 +73,18 @@ public class ProxmoxClient {
     public Mono<Map<String,Object>> createVmOptimize(
             String subjectToken, String userId, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
         // VmId
-        Mono<Integer> vmIdMono = nextId().map(response -> response.get("data"));
+        Mono<Integer> vmIdMono = nextId()
+                .map(response -> response.get("data"))
+                .timeout(Duration.ofSeconds(10))
+                .onErrorMap(e -> new HttpTimeoutException("NextId failed: " + e.getMessage()));
         // VmTemplate
-        Mono<VmCreate> vmTemplateMono = Mono.fromCallable(() -> {
+        Mono<VmCreate> vmTemplateMono = Mono.defer(() -> {
             VmCreate vm = new VmCreate(vmType);
             vm.setName(name);
             vm.setScsi0("local-lvm:" + disk);
             vm.setIde2("local:iso/" + ide + ",media=cdrom");
             vm.setCiuser(getCiuser(ide));
-            return vm;
+            return Mono.just(vm);
         });
         // SSH key
         Mono<String> exchangedToken = tokenExchangeClient.exchange(subjectToken, Audience.USER)
@@ -84,10 +92,16 @@ public class ProxmoxClient {
         Mono<String> sshKey = Mono.zip(exchangedToken, Mono.just(userId))
                 .flatMap(tuple -> userServiceClient.getSshKeys(tuple.getT1(), tuple.getT2())
                         .map(response -> {
-                            KeyDto key = response.stream().filter(v -> v.fingerprint().equals(fingerprint)).findFirst()
+                            KeyDto key = response.stream()
+                                    .filter(v -> v.fingerprint().equals(fingerprint))
+                                    .findFirst()
                                     .orElse(null);
                             return key!=null?key.publicKey():null;
                         })
+                        .flatMap(pk -> pk != null
+                                ? Mono.just(pk)
+                                :Mono.error(new IllegalArgumentException("SshKey not found"))
+                        )
                 );
 
         return Mono.zip(vmIdMono, vmTemplateMono, sshKey)
