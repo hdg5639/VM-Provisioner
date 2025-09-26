@@ -28,9 +28,9 @@ public class UserServiceClient {
                 .bodyToMono(UserDto.class);
     }
 
-    public Mono<List<KeyDto>> getSshKeys(String exchangedToken, String userId) {
+    public Mono<List<KeyDto>> getSshKeys(String exchangedToken) {
         return webClient.get()
-                .uri(baseUrl + "/api/users/{id}/ssh-keys", userId)
+                .uri(baseUrl + "/api/users/keys")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + exchangedToken)
                 .retrieve()
                 .bodyToFlux(KeyDto.class)

@@ -22,12 +22,11 @@ public class VmService {
     }
 
     public Mono<Map<String, Object>> createVm( String subjectToken,
-                                               String userId,
                                                String fingerprint,
                                                VmType vmType,
                                                String name,
                                                Integer disk,
                                                String ide) {
-        return proxmoxClient.createVmOptimize(subjectToken, userId, fingerprint, vmType, name, disk, ide);
+        return proxmoxClient.createVmOptimize(subjectToken, fingerprint, vmType, name, disk, ide);
     }
 }

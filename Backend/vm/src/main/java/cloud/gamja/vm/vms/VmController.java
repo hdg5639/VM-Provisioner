@@ -33,7 +33,6 @@ public class VmController {
         log.info("Create vm start");
         log.info("Request: {}", vmRequest);
         return vmService.createVm(acessToken(auth),
-                vmRequest.userId(),
                 vmRequest.fingerprint(),
                 vmRequest.vmType(),
                 vmRequest.name(),

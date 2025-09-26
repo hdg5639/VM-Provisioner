@@ -180,13 +180,6 @@ export default function App() {
     async function postVm(ev) {
         ev?.preventDefault?.();
 
-        // userId는 본인 것으로 자동 채움
-        const userId = profile?.id ?? me?.user?.id ?? me?.id;
-        if (!userId) {
-            setVmErr("userId를 확인할 수 없습니다(로그인/프로필 확인).");
-            return;
-        }
-
         // 간단 검증
         if (!vmForm.fingerprint) { setVmErr("fingerprint를 선택하세요."); return; }
         if (!vmForm.vmType || !vmForm.name || !vmForm.disk || !vmForm.ide) {
@@ -201,7 +194,6 @@ export default function App() {
                 credentials: "include",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    userId: String(userId),
                     fingerprint: vmForm.fingerprint,
                     vmType: vmForm.vmType,
                     name: vmForm.name,
@@ -324,15 +316,6 @@ export default function App() {
 
                             {/* ★ VM 생성 폼 */}
                             <form onSubmit={postVm} style={{ marginBottom: 12 }}>
-                                <div style={fieldRow}>
-                                    <label style={label}>userId</label>
-                                    <input
-                                        type="text"
-                                        value={profile?.id ?? me?.user?.id ?? me?.id ?? ""}
-                                        readOnly
-                                        style={{ ...input, background: "#f3f3f3" }}
-                                    />
-                                </div>
                                 <div style={fieldRow}>
                                     <label style={label}>fingerprint</label>
                                     <select

@@ -73,7 +73,7 @@ public class ProxmoxClient {
     }
 
     public Mono<Map<String,Object>> createVmOptimize(
-            String subjectToken, String userId, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
+            String subjectToken, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
         // VmId
         log.info("vmId start");
         Mono<Integer> vmIdMono = nextId()
@@ -96,7 +96,7 @@ public class ProxmoxClient {
         log.info("ssh key start");
         Mono<String> sshKey = tokenExchangeClient.exchange(subjectToken, Audience.USER)
                 .map((response) -> response.get("access_token"))
-                .flatMap(token -> findByFingerprint(token, userId, fingerprint));
+                .flatMap(token -> findByFingerprint(token, fingerprint));
         log.info("sshKey end");
 
         log.info("Create vm start");
@@ -125,8 +125,8 @@ public class ProxmoxClient {
         return "default";
     }
 
-    private Mono<String> findByFingerprint(String userAccessToken, String userId, String fingerprint) {
-        return userServiceClient.getSshKeys(userAccessToken, userId)
+    private Mono<String> findByFingerprint(String userAccessToken, String fingerprint) {
+        return userServiceClient.getSshKeys(userAccessToken)
                 .map(list -> list.stream()
                         .filter(k -> fingerprint.equals(k.fingerprint()))
                         .findFirst()
