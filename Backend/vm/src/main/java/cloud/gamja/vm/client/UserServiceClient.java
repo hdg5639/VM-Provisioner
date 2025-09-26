@@ -30,7 +30,7 @@ public class UserServiceClient {
 
     public Mono<List<KeyDto>> getSshKeys(String exchangedToken) {
         return webClient.get()
-                .uri(baseUrl + "/api/users/keys")
+                .uri(baseUrl + "/api/keys")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + exchangedToken)
                 .retrieve()
                 .bodyToFlux(KeyDto.class)
