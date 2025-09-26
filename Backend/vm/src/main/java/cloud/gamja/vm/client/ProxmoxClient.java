@@ -52,7 +52,8 @@ public class ProxmoxClient {
         q.add("cpu", vm.getCpu());
         q.add("cpulimit", String.valueOf(vm.getCpulimit()));
         q.add("cpuunits", String.valueOf(vm.getCpuunits()));
-        q.add("affinity", vm.getAffinity());
+        // affinity 임시 제거
+        //q.add("affinity", vm.getAffinity());
         q.add("memory", vm.getMemory());
         q.add("ostype", vm.getOstype());
         q.add("pool", vm.getPool());
