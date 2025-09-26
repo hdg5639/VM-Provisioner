@@ -1,103 +1,71 @@
 import { useEffect, useState } from "react";
 
 export default function App() {
-    const [me, setMe] = useState(null);           // BFF /api/me (세션 체크)
-    const [profile, setProfile] = useState(null); // user-service /users/me
-    const [keys, setKeys] = useState([]);         // user-service /keys
+    const [me, setMe] = useState(null);
+    const [profile, setProfile] = useState(null);
+    const [keys, setKeys] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const [navBusy, setNavBusy] = useState(false);
-    const [opBusy, setOpBusy] = useState(false);  // 키 등록/삭제 중
+    const [opBusy, setOpBusy] = useState(false);
     const [msg, setMsg] = useState("");
     const [form, setForm] = useState({ name: "", publicKey: "" });
 
-    // 진단 덤프
     const [diagProfile, setDiagProfile] = useState(null);
     const [diagKeys, setDiagKeys] = useState(null);
 
-    // VM API 테스트 상태
+    // ★ VM API 상태
     const [vmBusy, setVmBusy] = useState(false);
-    const [vmJson, setVmJson] = useState(null);    // /api/ds/vm 응답 JSON
-    const [vmErr, setVmErr] = useState("");        // 오류 메시지
+    const [vmJson, setVmJson] = useState(null);
+    const [vmErr, setVmErr] = useState("");
+
+    // ★ VM 생성 폼 상태
+    const [vmForm, setVmForm] = useState({
+        fingerprint: "",
+        vmType: "",
+        name: "",
+        disk: "",
+        ide: "",
+    });
 
     const ORIGIN = typeof window !== "undefined" ? window.location.origin : "";
 
-    /* ---------------- helpers ---------------- */
-
-    // 기존 함수 교체
     async function safeJsonFromResponse(res) {
         const ct = (res.headers.get("content-type") || "").toLowerCase();
         const text = await res.text().catch(() => "");
         if (!text) return null;
-        // 1) content-type이 json이면 무조건 파싱
         if (ct.includes("application/json")) {
             try { return JSON.parse(text); } catch { return null; }
         }
-        // 2) 헤더가 비었어도, 바디가 { 또는 [ 로 시작하면 JSON 시도
         const t = text.trim();
         if (t.startsWith("{") || t.startsWith("[")) {
-            try { return JSON.parse(t); } catch { /* ignore */ }
+            try { return JSON.parse(t); } catch { /* empty */ }
         }
         return null;
     }
+    const safeText = async (res) => { try { return await res.text(); } catch { return ""; } };
 
-
-    // 에러 메시지용 텍스트
-    const safeText = async (res) => {
-        try { return await res.text(); } catch { return ""; }
-    };
-
-    // 진단용 fetch: status/headers/ct/text/json까지 반환
     async function fetchDiag(url, opts = {}) {
-        const res = await fetch(url, {
-            credentials: "include",
-            cache: "no-store",
-            ...opts,
-        });
+        const res = await fetch(url, { credentials: "include", cache: "no-store", ...opts });
         const headers = Object.fromEntries(res.headers.entries());
         const ct = (headers["content-type"] || "").toLowerCase();
-
-        // body를 한 번만 소비해야 해서 text 먼저 읽고, json은 파싱 시도
         const text = await res.text().catch(() => "");
         let json = null;
         if (ct.includes("application/json") && text) {
-            try { json = JSON.parse(text); } catch { /* ignore */ }
+            try { json = JSON.parse(text); } catch { /* empty */ }
         }
-
-        return {
-            url,
-            ok: res.ok,
-            status: res.status,
-            headers,
-            contentType: ct,
-            text,
-            json,
-        };
+        return { url, ok: res.ok, status: res.status, headers, contentType: ct, text, json };
     }
 
-    /* ---------------- data loads ---------------- */
-
-    // BFF 세션 체크
     async function loadMe() {
         try {
-            const res = await fetch("/api/me", {
-                credentials: "include",
-                cache: "no-store",
-            });
-            if (res.ok) {
-                const data = await safeJsonFromResponse(res);
-                setMe(data ?? null);
-            } else {
-                setMe(null);
-            }
-        } catch {
-            setMe(null);
-        } finally {
-            setLoading(false);
-        }
+            const res = await fetch("/api/me", { credentials: "include", cache: "no-store" });
+            if (res.ok) setMe((await safeJsonFromResponse(res)) ?? null);
+            else setMe(null);
+        } catch { setMe(null); }
+        finally { setLoading(false); }
     }
 
-    // user-service 데이터(프로필/키) 로딩 + 진단 저장
     async function loadUserData() {
         if (!me) return;
         try {
@@ -105,12 +73,10 @@ export default function App() {
                 fetchDiag("/api/ds/user/users/me"),
                 fetchDiag("/api/ds/user/keys"),
             ]);
-
             setDiagProfile(p);
             setDiagKeys(k);
 
             if (p.ok) {
-                // p.json이 없으면 헤더 없이 JSON일 수 있어 text 재파싱
                 const pj = p.json ?? (() => { try { return JSON.parse((p.text||"").trim()); } catch { return null; } })();
                 if (pj) setProfile(pj);
             } else if (p.status === 403) {
@@ -121,7 +87,13 @@ export default function App() {
                 const kj = Array.isArray(k.json)
                     ? k.json
                     : (() => { try { const t=(k.text||"").trim(); return t ? JSON.parse(t) : []; } catch { return []; } })();
-                if (Array.isArray(kj)) setKeys(kj);
+                if (Array.isArray(kj)) {
+                    setKeys(kj);
+                    // ★ 기본 선택: 첫 번째 키의 fingerprint
+                    if (!vmForm.fingerprint && kj.length > 0 && kj[0]?.fingerprint) {
+                        setVmForm(f => ({ ...f, fingerprint: kj[0].fingerprint }));
+                    }
+                }
             } else {
                 setMsg(`키 목록 실패 (${k.status}) ${k.text?.slice(0,200)}`);
             }
@@ -134,77 +106,47 @@ export default function App() {
     useEffect(() => { loadMe(); }, []);
     useEffect(() => { if (me) loadUserData(); }, [me]);
 
-    /* ---------------- auth nav ---------------- */
+    const onLogin = () => { setNavBusy(true); window.location.assign(`${ORIGIN}/auth/login`); };
+    const onLogout = () => { setNavBusy(true); window.location.assign(`${ORIGIN}/logout`); };
 
-    const onLogin = () => {
-        setNavBusy(true);
-        window.location.assign(`${ORIGIN}/auth/login`);
-    };
-    const onLogout = () => {
-        setNavBusy(true);
-        window.location.assign(`${ORIGIN}/logout`);
-    };
-
-    /* ---------------- actions ---------------- */
-
-    // 키 등록
     const createKey = async (ev) => {
         ev?.preventDefault?.();
-
         if (!form.name.trim() || !form.publicKey.trim()) {
-            setMsg("이름과 공개키를 모두 입력하세요.");
-            return;
+            setMsg("이름과 공개키를 모두 입력하세요."); return;
         }
-
-        setOpBusy(true);
-        setMsg("");
+        setOpBusy(true); setMsg("");
         try {
             const res = await fetch("/api/ds/user/keys", {
-                method: "POST",
-                credentials: "include",
+                method: "POST", credentials: "include",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    name: form.name.trim(),
-                    publicKey: form.publicKey.trim(),
-                }),
+                body: JSON.stringify({ name: form.name.trim(), publicKey: form.publicKey.trim() }),
             });
-
             if (res.ok) {
-                // POST 응답이 KeyDto JSON이면 로컬 상태에 즉시 반영
                 const createdText = await res.text().catch(() => "");
                 if (createdText) {
                     try {
                         const created = JSON.parse(createdText);
-                        if (created && created.id != null) {
-                            setKeys((prev) => [created, ...prev]);
-                        }
-                    } catch { /* ignore parse error */ }
+                        if (created && created.id != null) setKeys((prev) => [created, ...prev]);
+                    } catch { /* empty */ }
                 }
                 setForm({ name: "", publicKey: "" });
                 setMsg("키가 등록되었습니다.");
-                // 최신 목록/진단 다시 조회
                 await loadUserData();
             } else {
                 const txt = await safeText(res);
                 setMsg(`키 등록 실패 (${res.status}) ${txt}`);
             }
         } catch (err) {
-            console.error(err);
-            setMsg("키 등록 중 오류");
-        } finally {
-            setOpBusy(false);
-        }
+            console.error(err); setMsg("키 등록 중 오류");
+        } finally { setOpBusy(false); }
     };
 
-    // 키 삭제
     async function deleteKey(id) {
         if (!confirm("정말 삭제할까요?")) return;
-        setOpBusy(true);
-        setMsg("");
+        setOpBusy(true); setMsg("");
         try {
             const res = await fetch(`/api/ds/user/keys/${id}`, {
-                method: "DELETE",
-                credentials: "include",
+                method: "DELETE", credentials: "include",
             });
             if (res.ok || res.status === 204) {
                 setKeys((prev) => prev.filter((k) => k.id !== id));
@@ -213,20 +155,15 @@ export default function App() {
                 const txt = await safeText(res);
                 setMsg(`삭제 실패 (${res.status}) ${txt}`);
             }
-        } catch {
-            setMsg("삭제 중 오류");
-        } finally {
-            setOpBusy(false);
-        }
+        } catch { setMsg("삭제 중 오류"); }
+        finally { setOpBusy(false); }
     }
 
-    // ★ VM API: GET /api/ds/vm
+    // ★ VM API: GET (기존)
     async function getVm() {
-        setVmBusy(true);
-        setVmErr("");
+        setVmBusy(true); setVmErr("");
         try {
             const d = await fetchDiag("/api/ds/vm/test");
-            // 그대로 JSON 표시: JSON이면 그대로, 아니면 파싱 시도
             let body = null;
             if (d.json != null) body = d.json;
             else if ((d.text || "").trim()) {
@@ -235,14 +172,58 @@ export default function App() {
             setVmJson(body);
             if (!d.ok) setVmErr(`요청 실패 (${d.status})`);
         } catch (e) {
+            console.error(e); setVmErr("요청 중 오류");
+        } finally { setVmBusy(false); }
+    }
+
+    // ★ VM API: POST /api/ds/vm/vm
+    async function postVm(ev) {
+        ev?.preventDefault?.();
+
+        // userId는 본인 것으로 자동 채움
+        const userId = profile?.id ?? me?.user?.id ?? me?.id;
+        if (!userId) {
+            setVmErr("userId를 확인할 수 없습니다(로그인/프로필 확인).");
+            return;
+        }
+
+        // 간단 검증
+        if (!vmForm.fingerprint) { setVmErr("fingerprint를 선택하세요."); return; }
+        if (!vmForm.vmType || !vmForm.name || !vmForm.disk || !vmForm.ide) {
+            setVmErr("vmType / name / disk / ide를 모두 입력하세요.");
+            return;
+        }
+
+        setVmBusy(true); setVmErr(""); setVmJson(null);
+        try {
+            const res = await fetch("/api/ds/vm/vm", {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    userId: String(userId),
+                    fingerprint: vmForm.fingerprint,
+                    vmType: vmForm.vmType,
+                    name: vmForm.name,
+                    disk: Number(vmForm.disk),
+                    ide: vmForm.ide,
+                }),
+            });
+
+            const text = await res.text().catch(() => "");
+            let body = null;
+            if (text) { try { body = JSON.parse(text); } catch { body = { raw: text }; } }
+            setVmJson(body);
+
+            if (!res.ok) setVmErr(`생성 실패 (${res.status}) ${text?.slice(0,200) || ""}`);
+            else setMsg("VM 생성 요청을 보냈습니다.");
+        } catch (e) {
             console.error(e);
-            setVmErr("요청 중 오류");
+            setVmErr("생성 요청 중 오류");
         } finally {
             setVmBusy(false);
         }
     }
-
-    /* ---------------- render ---------------- */
 
     if (loading) return <div>로딩중...</div>;
 
@@ -253,18 +234,16 @@ export default function App() {
 
                 {me ? (
                     <>
-                        {/* 프로필 요약 */}
                         <section style={{ margin: "12px 0 16px" }}>
                             <b>환영합니다.</b>{" "}
                             <span>{me.user?.displayName || me.name || me.email}</span>
                             {profile && (
                                 <span style={{ color: "#666", marginLeft: 8 }}>
-                  (ID: {profile.id}, Email: {profile.email})
-                </span>
+                                  (ID: {profile.id}, Email: {profile.email})
+                                </span>
                             )}
                         </section>
 
-                        {/* 메시지/알림 */}
                         {msg && (
                             <div style={{ background: "#f1f7ff", border: "1px solid #d9e7ff", color: "#174ea6", padding: 10, borderRadius: 8, marginBottom: 12 }}>
                                 {msg}
@@ -342,12 +321,89 @@ export default function App() {
                         {/* ★ VM API 테스트: /api/ds/vm */}
                         <section style={{ marginBottom: 24 }}>
                             <h3 style={{ margin: "8px 0" }}>VM API 테스트</h3>
+
+                            {/* ★ VM 생성 폼 */}
+                            <form onSubmit={postVm} style={{ marginBottom: 12 }}>
+                                <div style={fieldRow}>
+                                    <label style={label}>userId</label>
+                                    <input
+                                        type="text"
+                                        value={profile?.id ?? me?.user?.id ?? me?.id ?? ""}
+                                        readOnly
+                                        style={{ ...input, background: "#f3f3f3" }}
+                                    />
+                                </div>
+                                <div style={fieldRow}>
+                                    <label style={label}>fingerprint</label>
+                                    <select
+                                        value={vmForm.fingerprint}
+                                        onChange={(e) => setVmForm(f => ({ ...f, fingerprint: e.target.value }))}
+                                        style={input}
+                                    >
+                                        <option value="">선택하세요</option>
+                                        {keys.map(k => (
+                                            <option key={k.id} value={k.fingerprint}>
+                                                {k.name} — {k.fingerprint}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div style={fieldRow}>
+                                    <label style={label}>vmType</label>
+                                    <input
+                                        type="text"
+                                        placeholder="예: UBUNTU_22"
+                                        value={vmForm.vmType}
+                                        onChange={(e) => setVmForm(f => ({ ...f, vmType: e.target.value }))}
+                                        style={input}
+                                    />
+                                </div>
+                                <div style={fieldRow}>
+                                    <label style={label}>name</label>
+                                    <input
+                                        type="text"
+                                        placeholder="예: dj-hdg-01"
+                                        value={vmForm.name}
+                                        onChange={(e) => setVmForm(f => ({ ...f, name: e.target.value }))}
+                                        style={input}
+                                    />
+                                </div>
+                                <div style={fieldRow}>
+                                    <label style={label}>disk(GB)</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        placeholder="예: 20"
+                                        value={vmForm.disk}
+                                        onChange={(e) => setVmForm(f => ({ ...f, disk: e.target.value }))}
+                                        style={input}
+                                    />
+                                </div>
+                                <div style={fieldRow}>
+                                    <label style={label}>ide(ISO)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="예: ubuntu-22.04.5-live-server-amd64.iso"
+                                        value={vmForm.ide}
+                                        onChange={(e) => setVmForm(f => ({ ...f, ide: e.target.value }))}
+                                        style={input}
+                                    />
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <button type="submit" style={btn} disabled={vmBusy || opBusy || navBusy}>
+                                        {vmBusy ? "요청 중..." : "POST /api/ds/vm/vm"}
+                                    </button>
+                                    {vmErr && <span style={{ color: "#c22" }}>{vmErr}</span>}
+                                </div>
+                            </form>
+
+                            {/* 기존 GET 테스트 버튼 유지 */}
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                                 <button onClick={getVm} style={btn} disabled={vmBusy || opBusy || navBusy}>
                                     {vmBusy ? "요청 중..." : "GET /api/ds/vm"}
                                 </button>
-                                {vmErr && <span style={{ color: "#c22" }}>{vmErr}</span>}
                             </div>
+
                             <pre style={preBox}>
 {vmJson != null ? JSON.stringify(vmJson, null, 2) : "아직 요청하지 않았습니다."}
                             </pre>
@@ -369,7 +425,6 @@ export default function App() {
                             <button style={btnSecondary} onClick={loadUserData} disabled={opBusy}>다시 불러오기</button>
                         </details>
 
-                        {/* (디버그용) 원본 보기 */}
                         <details style={{ marginTop: 8 }}>
                             <summary>자세히 보기 (raw state + diag)</summary>
                             <pre style={preBox}>{JSON.stringify(
@@ -392,8 +447,6 @@ export default function App() {
     );
 }
 
-/* ---------------- util for redaction & styles ---------------- */
-
 const redactTokens = (k, v) => {
     const key = (k || "").toLowerCase();
     if (["token", "access_token", "id_token", "refresh_token"].some((s) => key.includes(s))) return "[redacted]";
@@ -402,7 +455,7 @@ const redactTokens = (k, v) => {
 
 const itemRow = { display: "flex", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: "1px solid #eee" };
 const fieldRow = { display: "flex", gap: 12, alignItems: "center", marginBottom: 10 };
-const label = { width: 70, fontSize: 14, color: "#444" };
+const label = { width: 90, fontSize: 14, color: "#444" }; // ← userId 라벨 폭 조금 늘림
 const input = { flex: 1, border: "1px solid #ddd", borderRadius: 10, padding: "10px 12px", fontSize: 14, outline: "none" };
 const preBox = { background: "#f7f7f7", padding: 12, borderRadius: 8, overflow: "auto", maxHeight: 320 };
 const btn = { padding: "10px 16px", borderRadius: 12, border: "1px solid #111", background: "#111", color: "#fff", cursor: "pointer" };
