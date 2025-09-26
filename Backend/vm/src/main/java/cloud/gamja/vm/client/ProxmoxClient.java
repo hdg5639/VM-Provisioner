@@ -62,9 +62,11 @@ public class ProxmoxClient {
         q.add("net0", vm.getNet0());
         q.add("ide2", vm.getIde2());
         q.add("ciuser", vm.getCiuser());
-        q.add("sshkeys", vm.getSshkeys());
         q.add("ipconfig0", vm.getIpconfig0());
         q.add("nameserver", vm.getNameserver());
+
+        String ssh = vm.getSshkeys().replace("\r\n", "\n").trim();
+        q.add("sshkey", ssh);
 
         return webClient.post()
                 .uri(uri -> uri.path("/nodes/{node}/qemu").queryParams(q).build(vm.getNode()))
@@ -73,15 +75,10 @@ public class ProxmoxClient {
                 .body(BodyInserters.fromFormData(q))
                 .exchangeToMono(res -> {
                     if (res.statusCode().is2xxSuccessful()) {
-                        return res.bodyToMono(new ParameterizedTypeReference<>(){});
+                        return res.bodyToMono(new ParameterizedTypeReference<>() {});
                     }
-                    // 애러 바디 추출
-                    return res.bodyToMono(String.class)
-                            .defaultIfEmpty("")
-                            .flatMap(body -> {
-                                log.error("PVE create VM 400 body: {}", body);
-                                return Mono.error(new IllegalStateException("PVE 400: " + body));
-                            });
+                    return res.bodyToMono(String.class).defaultIfEmpty("")
+                            .flatMap(body -> Mono.error(new IllegalStateException("PVE " + res.statusCode().value() + ": " + body)));
                 });
     }
 

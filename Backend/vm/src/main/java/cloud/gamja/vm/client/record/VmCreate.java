@@ -35,7 +35,7 @@ public class VmCreate {
             case FREE:
                 this.node = "pve";
                 this.cores = 4;
-                this.cpu = "host, hidden=1";
+                this.cpu = "host,hidden=1";
                 this.cpulimit = 4;
                 this.cpuunits = 1024;
                 this.affinity = "6-13";
@@ -51,7 +51,7 @@ public class VmCreate {
             case PRO:
                 this.node = "pve";
                 this.cores = 8;
-                this.cpu = "host, hidden=1";
+                this.cpu = "host,hidden=1";
                 this.cpulimit = 0;
                 this.cpuunits = 3072;
                 this.affinity = "14-37";
