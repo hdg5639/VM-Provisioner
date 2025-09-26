@@ -35,7 +35,7 @@ public class ProxmoxClient {
 
     public Mono<Map<String,Object>> getNodes() {
         return webClient.get()
-                .uri("nodes")
+                .uri("/nodes")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
@@ -111,7 +111,7 @@ public class ProxmoxClient {
 
     private Mono<Map<String, Integer>> nextId() {
         return webClient.get()
-                .uri("cluster/nextid")
+                .uri("/cluster/nextid")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
