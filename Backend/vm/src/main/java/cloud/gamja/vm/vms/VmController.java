@@ -17,8 +17,8 @@ import java.util.Map;
 public class VmController {
     private final VmService vmService;
 
-    private String sub(JwtAuthenticationToken auth) {
-        return auth.getToken().getSubject();
+    private String acessToken(JwtAuthenticationToken auth) {
+        return auth.getToken().getTokenValue();
     }
 
     @GetMapping("/test")
@@ -32,7 +32,7 @@ public class VmController {
                                                @RequestBody VmRequest vmRequest) {
         log.info("Create vm start");
         log.info("Request: {}", vmRequest);
-        return vmService.createVm(sub(auth),
+        return vmService.createVm(acessToken(auth),
                 vmRequest.userId(),
                 vmRequest.fingerprint(),
                 vmRequest.vmType(),
