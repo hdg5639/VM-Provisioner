@@ -33,7 +33,7 @@ public class ProxmoxClient {
 
     public Mono<Map<String,Object>> getNodes() {
         return webClient.get()
-                .uri("/nodes")
+                .uri("nodes")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
@@ -44,7 +44,7 @@ public class ProxmoxClient {
         log.debug("Creating VM {}", vm);
         return webClient.post()
                     .uri(uriBuilder ->
-                            uriBuilder.path("/nodes/pve/qemu")
+                            uriBuilder.path("nodes/pve/qemu")
                                     .queryParam("vmid", vm.getVmid())
                                     .queryParam("name", vm.getName())
                                     .queryParam("cores", vm.getCores())
@@ -111,7 +111,7 @@ public class ProxmoxClient {
 
     private Mono<Map<String, Integer>> nextId() {
         return webClient.get()
-                .uri("/cluster/nextid")
+                .uri("cluster/nextid")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
