@@ -42,10 +42,10 @@ public class ProxmoxClient {
     }
 
     private Mono<Map<String,Object>> createVmRequest(VmCreate vm) {
-        log.debug("Creating VM {}", vm);
+        log.info("Creating VM {}", vm);
         return webClient.post()
                     .uri(uriBuilder ->
-                            uriBuilder.path(baseUrl + "/nodes/pve/qemu")
+                            uriBuilder.path("/nodes/pve/qemu")
                                     .queryParam("vmid", vm.getVmid())
                                     .queryParam("name", vm.getName())
                                     .queryParam("cores", vm.getCores())
