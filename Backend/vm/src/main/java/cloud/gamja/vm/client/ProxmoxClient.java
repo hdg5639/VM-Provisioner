@@ -93,8 +93,11 @@ public class ProxmoxClient {
         log.info("vmTemplate end");
         // SSH key
         log.info("ssh key start");
+        log.info("Token Exchange start");
         Mono<String> exchangedToken = tokenExchangeClient.exchange(subjectToken, Audience.USER)
                 .map((response) -> response.get("access_token"));
+        log.info("Token Exchange end");
+        log.info("Find public key start");
         Mono<String> sshKey = Mono.zip(exchangedToken, Mono.just(userId))
                 .flatMap(tuple -> userServiceClient.getSshKeys(tuple.getT1(), tuple.getT2())
                         .map(response -> {
@@ -109,6 +112,7 @@ public class ProxmoxClient {
                                 :Mono.error(new IllegalArgumentException("SshKey not found"))
                         )
                 );
+        log.info("Find public key end");
         log.info("sshKey end");
 
         log.info("Create vm start");
