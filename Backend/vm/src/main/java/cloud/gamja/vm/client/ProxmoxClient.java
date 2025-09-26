@@ -5,12 +5,11 @@ import cloud.gamja.vm.client.record.KeyDto;
 import cloud.gamja.vm.client.record.VmCreate;
 import cloud.gamja.vm.vms.enums.VmType;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -19,6 +18,7 @@ import java.time.Duration;
 import java.util.Map;
 
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ProxmoxClient {
@@ -41,6 +41,7 @@ public class ProxmoxClient {
     }
 
     private Mono<Map<String,Object>> createVmRequest(VmCreate vm) {
+        log.debug("Creating VM {}", vm);
         return webClient.post()
                     .uri(uriBuilder ->
                             uriBuilder.path("/nodes/pve/qemu")
@@ -73,11 +74,14 @@ public class ProxmoxClient {
     public Mono<Map<String,Object>> createVmOptimize(
             String subjectToken, String userId, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
         // VmId
+        log.info("vmId start");
         Mono<Integer> vmIdMono = nextId()
                 .map(response -> response.get("data"))
                 .timeout(Duration.ofSeconds(10))
                 .onErrorMap(e -> new HttpTimeoutException("NextId failed: " + e.getMessage()));
+        log.info("vmId end");
         // VmTemplate
+        log.info("vmTemplate start");
         Mono<VmCreate> vmTemplateMono = Mono.defer(() -> {
             VmCreate vm = new VmCreate(vmType);
             vm.setName(name);
@@ -86,7 +90,9 @@ public class ProxmoxClient {
             vm.setCiuser(getCiuser(ide));
             return Mono.just(vm);
         });
+        log.info("vmTemplate end");
         // SSH key
+        log.info("ssh key start");
         Mono<String> exchangedToken = tokenExchangeClient.exchange(subjectToken, Audience.USER)
                 .map((response) -> response.get("access_token"));
         Mono<String> sshKey = Mono.zip(exchangedToken, Mono.just(userId))
@@ -103,7 +109,9 @@ public class ProxmoxClient {
                                 :Mono.error(new IllegalArgumentException("SshKey not found"))
                         )
                 );
+        log.info("sshKey end");
 
+        log.info("Create vm start");
         return Mono.zip(vmIdMono, vmTemplateMono, sshKey)
                 .map(tuple -> {
                     VmCreate vm = tuple.getT2();
