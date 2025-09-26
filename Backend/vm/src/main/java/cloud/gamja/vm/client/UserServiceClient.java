@@ -22,7 +22,7 @@ public class UserServiceClient {
 
     public Mono<UserDto> getUser(String exchangedToken, String userId) {
         return webClient.get()
-                .uri(baseUrl + "/users/{id}", userId)
+                .uri(baseUrl + "/api/users/{id}", userId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + exchangedToken)
                 .retrieve()
                 .bodyToMono(UserDto.class);
@@ -30,7 +30,7 @@ public class UserServiceClient {
 
     public Mono<List<KeyDto>> getSshKeys(String exchangedToken, String userId) {
         return webClient.get()
-                .uri(baseUrl + "/users/{id}/ssh-keys", userId)
+                .uri(baseUrl + "/api/users/{id}/ssh-keys", userId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + exchangedToken)
                 .retrieve()
                 .bodyToFlux(KeyDto.class)
