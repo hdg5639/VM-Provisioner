@@ -25,7 +25,8 @@ public class ProxmoxClient {
     private final WebClient webClient = WebClient.builder().build();
     private final UserServiceClient userServiceClient;
     private final TokenExchangeClient tokenExchangeClient;
-
+    @Value("${custom.proxmox.base-url}")
+    String baseUrl;
     @Value("${custom.proxmox.token-id}")
     private String tokenId;
     @Value("${custom.proxmox.token-value}")
@@ -33,7 +34,7 @@ public class ProxmoxClient {
 
     public Mono<Map<String,Object>> getNodes() {
         return webClient.get()
-                .uri("nodes")
+                .uri(baseUrl + "/nodes")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
@@ -44,7 +45,7 @@ public class ProxmoxClient {
         log.debug("Creating VM {}", vm);
         return webClient.post()
                     .uri(uriBuilder ->
-                            uriBuilder.path("nodes/pve/qemu")
+                            uriBuilder.path(baseUrl + "/nodes/pve/qemu")
                                     .queryParam("vmid", vm.getVmid())
                                     .queryParam("name", vm.getName())
                                     .queryParam("cores", vm.getCores())
@@ -111,7 +112,7 @@ public class ProxmoxClient {
 
     private Mono<Map<String, Integer>> nextId() {
         return webClient.get()
-                .uri("cluster/nextid")
+                .uri(baseUrl + "/cluster/nextid")
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
