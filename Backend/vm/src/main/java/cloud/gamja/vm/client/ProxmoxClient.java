@@ -1,6 +1,7 @@
 package cloud.gamja.vm.client;
 
 import cloud.gamja.vm.client.enums.Audience;
+import cloud.gamja.vm.client.record.KeyDto;
 import cloud.gamja.vm.client.record.VmCreate;
 import cloud.gamja.vm.vms.enums.VmType;
 import lombok.RequiredArgsConstructor;
@@ -65,8 +66,10 @@ public class ProxmoxClient {
     }
 
     public Mono<Map<String,Object>> createVmOptimize(
-            String subjectToken, String userId, VmType vmType, String name, Integer disk, String ide) {
+            String subjectToken, String userId, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
+        // VmId
         Mono<Integer> vmIdMono = nextId().map(response -> response.get("data"));
+        // VmTemplate
         Mono<VmCreate> vmTemplateMono = Mono.fromCallable(() -> {
             VmCreate vm = new VmCreate(vmType);
             vm.setName(name);
@@ -75,11 +78,19 @@ public class ProxmoxClient {
             vm.setCiuser(getCiuser(ide));
             return vm;
         });
-        Mono<String> userSshKey =
-                userServiceClient.getSshKeys(tokenExchangeClient.exchange(subjectToken, Audience.USER), userId)
-                        .map(response -> response.get(0).publicKey());
+        // SSH key
+        Mono<String> exchangedToken = tokenExchangeClient.exchange(subjectToken, Audience.USER)
+                .map((response) -> response.get("access_token"));
+        Mono<String> sshKey = Mono.zip(exchangedToken, Mono.just(userId))
+                .flatMap(tuple -> userServiceClient.getSshKeys(tuple.getT1(), tuple.getT2())
+                        .map(response -> {
+                            KeyDto key = response.stream().filter(v -> v.fingerprint().equals(fingerprint)).findFirst()
+                                    .orElse(null);
+                            return key!=null?key.publicKey():null;
+                        })
+                );
 
-        return Mono.zip(vmIdMono, vmTemplateMono, userSshKey)
+        return Mono.zip(vmIdMono, vmTemplateMono, sshKey)
                 .map(tuple -> {
                     VmCreate vm = tuple.getT2();
                     vm.setVmid(tuple.getT1());
