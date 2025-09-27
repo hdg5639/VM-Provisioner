@@ -29,7 +29,7 @@ public class VmCreate {
     private String ciuser;
     private String sshkeys;
     private String ipconfig0;
-    private String nameserver;
+    private String boot;
 
     public VmCreate(VmType vmtype) {
         switch (vmtype) {
@@ -48,7 +48,7 @@ public class VmCreate {
                 this.net0 = "virtio,bridge=vmbr0";
                 this.ide2 = "local-lvm:cloudinit";
                 this.ipconfig0 = "ip=dhcp";
-                this.nameserver = "1.1.1.1";
+                this.boot = "order=scsi0;ide0";
                 break;
             case PRO:
                 this.node = "pve";
@@ -63,6 +63,9 @@ public class VmCreate {
                 this.agent = "1";
                 this.scsihw = "virtio-scsi-pci";
                 this.net0 = "virtio,bridge=vmbr0";
+                this.ide2 = "local-lvm:cloudinit";
+                this.ipconfig0 = "ip=dhcp";
+                this.boot = "order=scsi0;ide0";
                 break;
         }
     }

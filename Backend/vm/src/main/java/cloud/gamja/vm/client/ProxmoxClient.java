@@ -65,7 +65,6 @@ public class ProxmoxClient {
         q.add("ide2", vm.getIde2());
         q.add("ciuser", vm.getCiuser());
         q.add("ipconfig0", vm.getIpconfig0());
-        q.add("nameserver", vm.getNameserver());
 
         String ssh = vm.getSshkeys().replace("\r\n", "\n").trim();
 //        q.add("sshkeys", ssh);
