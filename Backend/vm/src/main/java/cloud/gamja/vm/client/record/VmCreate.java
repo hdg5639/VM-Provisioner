@@ -24,6 +24,7 @@ public class VmCreate {
     private String scsihw;
     private String scsi0;
     private String net0;
+    private String ide0;
     private String ide2;
     private String ciuser;
     private String sshkeys;
@@ -45,6 +46,7 @@ public class VmCreate {
                 this.agent = "1";
                 this.scsihw = "virtio-scsi-pci";
                 this.net0 = "virtio,bridge=vmbr0";
+                this.ide2 = "local-lvm:cloudinit";
                 this.ipconfig0 = "ip=dhcp";
                 this.nameserver = "1.1.1.1";
                 break;

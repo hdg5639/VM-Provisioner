@@ -61,6 +61,7 @@ public class ProxmoxClient {
         q.add("scsihw", vm.getScsihw());
         q.add("scsi0", vm.getScsi0());
         q.add("net0", vm.getNet0());
+        q.add("ide0", vm.getIde0());
         q.add("ide2", vm.getIde2());
         q.add("ciuser", vm.getCiuser());
         q.add("ipconfig0", vm.getIpconfig0());
@@ -98,7 +99,7 @@ public class ProxmoxClient {
             VmCreate vm = new VmCreate(vmType);
             vm.setName(name);
             vm.setScsi0("local-lvm:" + disk);
-            vm.setIde2("local:iso/" + ide + ",media=cdrom");
+            vm.setIde0("local:iso/" + ide + ",media=cdrom");
             vm.setCiuser(getCiuser(ide));
             return Mono.just(vm);
         });
