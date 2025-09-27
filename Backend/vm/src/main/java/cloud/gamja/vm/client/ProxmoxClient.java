@@ -67,8 +67,7 @@ public class ProxmoxClient {
         q.add("nameserver", vm.getNameserver());
 
         String ssh = vm.getSshkeys().replace("\r\n", "\n").trim();
-        // ssh 임시 제거
-        //q.add("sshkey", ssh);
+        q.add("sshkeys", ssh);
 
         return webClient.post()
                 .uri(uri -> uri.path("/nodes/{node}/qemu").queryParams(q).build(vm.getNode()))
