@@ -44,6 +44,16 @@
       "name": "custom.proxmox.token-id",
       "type": "java.lang.String",
       "description": "API token id for proxmox."
+    },
+    {
+      "name": "custom.proxmox.template.free",
+      "type": "java.lang.String",
+      "description": "Free VM."
+    },
+    {
+      "name": "custom.proxmox.template.pro",
+      "type": "java.lang.String",
+      "description": "Pro VM."
     }
   ]
 }

@@ -48,3 +48,6 @@ custom:
     base-url: ${PROXMOX_BASE_URL}
     token-id: ${PROXMOX_TOKEN_ID}
     token-value: ${PROXMOX_TOKEN_VALUE}
+    template:
+      free: ${PROXMOX_FREE}
+      pro: ${PROXMOX_PRO}
