@@ -63,7 +63,7 @@ public class ProxmoxClient {
         Mono<VmCreate> vmTemplateMono = Mono.defer(() -> {
             VmCreate vm = new VmCreate(vmType);
             vm.setName(name);
-            vm.setScsi0(disk.toString());
+            vm.setScsi0(disk.toString()+"G");
             vm.setIde0("local:iso/" + ide + ",media=cdrom");
             vm.setCiuser(getCiuser(ide));
             return Mono.just(vm);
@@ -171,6 +171,7 @@ public class ProxmoxClient {
                 .body(BodyInserters.fromFormData(resizeParams))
                 .exchangeToMono(res -> {
                     if (res.statusCode().is2xxSuccessful()) {
+                        log.info("Success resizing disk scsi0 of VM {} to {}", vmid, size);
                         return res.bodyToMono(new ParameterizedTypeReference<>() {});
                     }
                     return res.bodyToMono(String.class)
