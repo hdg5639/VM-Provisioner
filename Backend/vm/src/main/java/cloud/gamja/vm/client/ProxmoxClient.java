@@ -17,9 +17,7 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.net.URLEncoder;
 import java.net.http.HttpTimeoutException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 
@@ -51,8 +49,7 @@ public class ProxmoxClient {
 
         return webClient.post()
                 .uri(uri -> uri.path("/nodes/{node}/qemu")
-                        .queryParams(q)
-                        .queryParam("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8)).build(vm.getNode()))
+                        .queryParams(q).build(vm.getNode()))
                 .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData(q))
