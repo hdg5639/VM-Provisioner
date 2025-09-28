@@ -134,6 +134,7 @@ public class ProxmoxClient {
         cloneParams.add("newid", vm.getVmid().toString());
         cloneParams.add("name", vm.getName());
         cloneParams.add("full", "1"); // Full clone (독립적인 디스크)
+        cloneParams.add("pool", vm.getPool());
 
         return webClient.post()
                 .uri("/nodes/{node}/qemu/{vmid}/clone", "pve", vmType == VmType.FREE ? freeVm : proVm)
@@ -162,7 +163,7 @@ public class ProxmoxClient {
         configParams.add("cores", String.valueOf(vm.getCores()));
         configParams.add("memory", vm.getMemory());
         configParams.add("cpu", vm.getCpu());
-        configParams.add("pool", vm.getPool());
+        configParams.add("sisi0", vm.getScsi0());
 
         // SSH 키 설정
         // configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
