@@ -40,6 +40,7 @@ public class ProxmoxClient {
     @Value("${custom.proxmox.template.pro}")
     private String proVm;
 
+    /*-----------------------Node 조회-----------------------*/
     public Mono<Map<String,Object>> getNodes() {
         return webClient.get()
                 .uri("/nodes")
@@ -49,6 +50,7 @@ public class ProxmoxClient {
                 .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
+    /*-----------------------VM 생성-----------------------*/
     public Mono<Map<String,Object>> createVmOptimize(
             String subjectToken, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
         // VmId
@@ -64,8 +66,8 @@ public class ProxmoxClient {
             VmCreate vm = new VmCreate(vmType);
             vm.setName(name);
             vm.setScsi0(disk.toString()+"G");
+            // Template 방식으로 변경되어 현재는 사용하지 않지만 추후 OS 추가될 수도 있기 때문에 놔둠
             vm.setIde0("local:iso/" + ide + ",media=cdrom");
-            vm.setCiuser(getCiuser(ide));
             return Mono.just(vm);
         });
         log.info("vmTemplate end");
@@ -86,6 +88,7 @@ public class ProxmoxClient {
                 });
     }
 
+    // 템플릿 클론
     private Mono<Map<String, Object>> cloneFromTemplate(VmCreate vm, VmType vmType) {
         log.info("Cloning VM {} from template {}", vm.getVmid(), vmType);
 
@@ -111,28 +114,11 @@ public class ProxmoxClient {
                 .flatMap(result -> customizeClonedVm(vm));
     }
 
+    // 클론된 VM 세부 설정 수정
     private Mono<Map<String, Object>> customizeClonedVm(VmCreate vm) {
         log.info("Customizing cloned VM {}", vm.getVmid());
 
-        MultiValueMap<String, String> configParams = new LinkedMultiValueMap<>();
-
-        // VmType에 따른 리소스 조정
-        configParams.add("cores", String.valueOf(vm.getCores()));
-        configParams.add("memory", vm.getMemory());
-        configParams.add("cpu", vm.getCpu());
-
-        // SSH 키 설정
-        // configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
-
-        configParams.add("ipconfig0", vm.getIpconfig0());
-
-        // 추가 설정들 (필요에 따라)
-        if (vm.getCpulimit() > 0) {
-            configParams.add("cpulimit", String.valueOf(vm.getCpulimit()));
-        }
-        if (vm.getCpuunits() != 1024) {
-            configParams.add("cpuunits", String.valueOf(vm.getCpuunits()));
-        }
+        MultiValueMap<String, String> configParams = getStringStringMultiValueMap(vm);
 
         return webClient.put()
                 .uri("/nodes/{node}/qemu/{vmid}/config", "pve", vm.getVmid())
@@ -157,6 +143,31 @@ public class ProxmoxClient {
                 });
     }
 
+    private static MultiValueMap<String, String> getStringStringMultiValueMap(VmCreate vm) {
+        MultiValueMap<String, String> configParams = new LinkedMultiValueMap<>();
+
+        // 리소스 조정
+        configParams.add("cores", String.valueOf(vm.getCores()));
+        configParams.add("memory", vm.getMemory());
+        configParams.add("cpu", vm.getCpu());
+
+        // SSH 키 설정
+        // URL Encoder 애러 나서 일단 주석처리
+        // configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
+
+        configParams.add("ipconfig0", vm.getIpconfig0());
+
+        // 추가 설정들
+        if (vm.getCpulimit() > 0) {
+            configParams.add("cpulimit", String.valueOf(vm.getCpulimit()));
+        }
+        if (vm.getCpuunits() != 1024) {
+            configParams.add("cpuunits", String.valueOf(vm.getCpuunits()));
+        }
+        return configParams;
+    }
+
+    // 디스크 크기 변경
     private Mono<Map<String, Object>> resizeDisk(Integer vmid, String size) {
         log.info("Resizing disk scsi0 of VM {} to {}", vmid, size);
 
@@ -180,6 +191,7 @@ public class ProxmoxClient {
                 });
     }
 
+    // 사용 가능한 다음 VMID 조회
     private Mono<Map<String, Integer>> nextId() {
         return webClient.get()
                 .uri("/cluster/nextid")
@@ -189,12 +201,7 @@ public class ProxmoxClient {
                 .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
-    private String getCiuser(String ide) {
-        if (ide.contains("ubuntu"))
-            return "ubuntu";
-        return "default";
-    }
-
+    // SSH key fingerprint 기반 조회
     private Mono<String> findByFingerprint(String userAccessToken, String fingerprint) {
         return userServiceClient.getSshKeys(userAccessToken)
                 .map(list -> list.stream()
