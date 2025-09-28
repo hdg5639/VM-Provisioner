@@ -162,6 +162,7 @@ public class ProxmoxClient {
         configParams.add("cores", String.valueOf(vm.getCores()));
         configParams.add("memory", vm.getMemory());
         configParams.add("cpu", vm.getCpu());
+        configParams.add("pool", vm.getPool());
 
         // SSH 키 설정
         // configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
