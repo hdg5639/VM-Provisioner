@@ -27,6 +27,7 @@ public class VmCreate {
     private String ide0;
     private String ide2;
     private String ciuser;
+    private String cipassword;
     private String sshkeys;
     private String ipconfig0;
     private String boot;
@@ -47,6 +48,7 @@ public class VmCreate {
                 this.scsihw = "virtio-scsi-pci";
                 this.net0 = "virtio,bridge=vmbr0";
                 this.ide2 = "local-lvm:cloudinit";
+                this.cipassword = "password";
                 this.ipconfig0 = "ip=dhcp";
                 this.boot = "order=scsi0;ide0";
                 break;
@@ -64,6 +66,7 @@ public class VmCreate {
                 this.scsihw = "virtio-scsi-pci";
                 this.net0 = "virtio,bridge=vmbr0";
                 this.ide2 = "local-lvm:cloudinit";
+                this.cipassword = "password";
                 this.ipconfig0 = "ip=dhcp";
                 this.boot = "order=scsi0;ide0";
                 break;
