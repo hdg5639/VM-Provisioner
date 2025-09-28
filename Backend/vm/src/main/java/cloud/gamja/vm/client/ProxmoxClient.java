@@ -53,13 +53,10 @@ public class ProxmoxClient {
                 .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData(q))
-                .exchangeToMono(res -> {
-                    if (res.statusCode().is2xxSuccessful()) {
-                        return res.bodyToMono(new ParameterizedTypeReference<>() {});
-                    }
-                    return res.bodyToMono(String.class).defaultIfEmpty("")
-                            .flatMap(body -> Mono.error(new IllegalStateException("PVE " + res.statusCode().value() + ": " + body)));
-                });
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<>() {})
+                .flatMap(result ->
+                        importCloudImage(vm.getVmid(), "noble-server-cloudimg-amd64.img"));
     }
 
     private static MultiValueMap<String, String> getStringStringMultiValueMap(VmCreate vm) {
@@ -121,12 +118,7 @@ public class ProxmoxClient {
                     vm.setSshkeys(tuple.getT3());
                     return vm;
                 })
-                .flatMap(this::createVmRequest)
-                .flatMap(result -> {
-                    Integer vmid = (Integer) result.get("vmid");
-                    return importCloudImage(vmid, "noble-server-cloudimg-amd64.img")
-                            .thenReturn(result);
-                });
+                .flatMap(this::createVmRequest);
     }
 
     private Mono<Map<String, Object>> importCloudImage(Integer vmid, String cloudImageName) {
