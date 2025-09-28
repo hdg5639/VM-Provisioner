@@ -17,8 +17,11 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.net.URLEncoder;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 
@@ -34,6 +37,10 @@ public class ProxmoxClient {
     private String tokenId;
     @Value("${custom.proxmox.token-value}")
     private String tokenValue;
+    @Value("${custom.proxmox.template.free}")
+    private String freeVm;
+    @Value("${custom.proxmox.template.pro}")
+    private String proVm;
 
     public Mono<Map<String,Object>> getNodes() {
         return webClient.get()
@@ -44,44 +51,44 @@ public class ProxmoxClient {
                 .bodyToMono(new ParameterizedTypeReference<>() {});
     }
 
-    private Mono<Map<String,Object>> createVmRequest(VmCreate vm) {
-        MultiValueMap<String, String> q = getStringStringMultiValueMap(vm);
+//    private Mono<Map<String,Object>> createVmRequest(VmCreate vm) {
+//        MultiValueMap<String, String> q = getStringStringMultiValueMap(vm);
+//
+//        return webClient.post()
+//                .uri(uri -> uri.path("/nodes/{node}/qemu")
+//                        .queryParams(q).build(vm.getNode()))
+//                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
+//                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+//                .body(BodyInserters.fromFormData(q))
+//                .retrieve()
+//                .bodyToMono(new ParameterizedTypeReference<>() {})
+//                .flatMap(result ->
+//                        importCloudImage(vm.getVmid(), "noble-server-cloudimg-amd64.img"));
+//    }
 
-        return webClient.post()
-                .uri(uri -> uri.path("/nodes/{node}/qemu")
-                        .queryParams(q).build(vm.getNode()))
-                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData(q))
-                .retrieve()
-                .bodyToMono(new ParameterizedTypeReference<>() {})
-                .flatMap(result ->
-                        importCloudImage(vm.getVmid(), "noble-server-cloudimg-amd64.img"));
-    }
-
-    private static MultiValueMap<String, String> getStringStringMultiValueMap(VmCreate vm) {
-        MultiValueMap<String,String> q = new LinkedMultiValueMap<>();
-        q.add("vmid", String.valueOf(vm.getVmid()));
-        q.add("name", vm.getName());
-        q.add("cores", String.valueOf(vm.getCores()));
-        q.add("cpu", vm.getCpu());
-        q.add("cpulimit", String.valueOf(vm.getCpulimit()));
-        q.add("cpuunits", String.valueOf(vm.getCpuunits()));
-        // affinity 임시 제거
-        //q.add("affinity", vm.getAffinity());
-        q.add("memory", vm.getMemory());
-        q.add("ostype", vm.getOstype());
-        q.add("pool", vm.getPool());
-        q.add("agent", vm.getAgent());
-        q.add("net0", vm.getNet0());
-        q.add("scsihw", vm.getScsihw());
-        q.add("scsi0", vm.getScsi0());
-//        q.add("ide0", vm.getIde0());
-//        q.add("ide2", vm.getIde2());
-        q.add("ciuser", vm.getCiuser());
-        q.add("ipconfig0", vm.getIpconfig0());
-        return q;
-    }
+//    private static MultiValueMap<String, String> getStringStringMultiValueMap(VmCreate vm) {
+//        MultiValueMap<String,String> q = new LinkedMultiValueMap<>();
+//        q.add("vmid", String.valueOf(vm.getVmid()));
+//        q.add("name", vm.getName());
+//        q.add("cores", String.valueOf(vm.getCores()));
+//        q.add("cpu", vm.getCpu());
+//        q.add("cpulimit", String.valueOf(vm.getCpulimit()));
+//        q.add("cpuunits", String.valueOf(vm.getCpuunits()));
+//        // affinity 임시 제거
+////        q.add("affinity", vm.getAffinity());
+//        q.add("memory", vm.getMemory());
+//        q.add("ostype", vm.getOstype());
+//        q.add("pool", vm.getPool());
+//        q.add("agent", vm.getAgent());
+//        q.add("net0", vm.getNet0());
+//        q.add("scsihw", vm.getScsihw());
+//        q.add("scsi0", vm.getScsi0());
+////        q.add("ide0", vm.getIde0());
+////        q.add("ide2", vm.getIde2());
+//        q.add("ciuser", vm.getCiuser());
+//        q.add("ipconfig0", vm.getIpconfig0());
+//        return q;
+//    }
 
     public Mono<Map<String,Object>> createVmOptimize(
             String subjectToken, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
@@ -112,65 +119,137 @@ public class ProxmoxClient {
 
         log.info("Create vm start");
         return Mono.zip(vmIdMono, vmTemplateMono, sshKey)
-                .map(tuple -> {
+                .flatMap(tuple -> {
                     VmCreate vm = tuple.getT2();
                     vm.setVmid(tuple.getT1());
                     vm.setSshkeys(tuple.getT3());
-                    return vm;
-                })
-                .flatMap(this::createVmRequest);
+                    return cloneFromTemplate(vm, vmType);
+                });
     }
 
-    private Mono<Map<String, Object>> importCloudImage(Integer vmid, String cloudImageName) {
-        log.info("Importing cloud image for VM {}: {}", vmid, cloudImageName);
+    private Mono<Map<String, Object>> cloneFromTemplate(VmCreate vm, VmType vmType) {
+        log.info("Cloning VM {} from template {}", vm.getVmid(), vmType);
 
-        return executeQmImportDisk(vmid, cloudImageName)
-                .then(attachImportedDisk(vmid));
-    }
-
-    private Mono<Void> executeQmImportDisk(Integer vmid, String cloudImageName) {
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("command", "qm");
-        params.add("args", String.join(" ",
-                "importdisk",
-                vmid.toString(),
-                "/var/lib/vz/template/iso/" + cloudImageName,
-                "local-lvm"
-        ));
+        MultiValueMap<String, String> cloneParams = new LinkedMultiValueMap<>();
+        cloneParams.add("newid", vm.getVmid().toString());
+        cloneParams.add("name", vm.getName());
+        cloneParams.add("full", "1"); // Full clone (독립적인 디스크)
 
         return webClient.post()
-                .uri("/nodes/{node}/tasks", "pve")
+                .uri("/nodes/{node}/qemu/{vmid}/clone", "pve", vmType == VmType.FREE ? freeVm : proVm)
                 .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData(params))
+                .body(BodyInserters.fromFormData(cloneParams))
                 .exchangeToMono(res -> {
                     if (res.statusCode().is2xxSuccessful()) {
-                        return res.bodyToMono(Void.class);
+                        return res.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
                     }
                     return res.bodyToMono(String.class)
                             .flatMap(body -> Mono.error(new IllegalStateException(
-                                    "Import disk failed: " + res.statusCode().value() + ": " + body)));
-                });
+                                    "Clone failed: " + res.statusCode().value() + ": " + body)));
+                })
+                // Clone 완료 후 VM 설정 커스터마이징
+                .flatMap(result -> customizeClonedVm(vm, vmType));
     }
 
-    private Mono<Map<String, Object>> attachImportedDisk(Integer vmid) {
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("scsi0", "local-lvm:vm-" + vmid + "-disk-0,cache=writeback,discard=on");
+    // Clone된 VM을 요청사항에 맞게 커스터마이징
+    private Mono<Map<String, Object>> customizeClonedVm(VmCreate vm, VmType vmType) {
+        log.info("Customizing cloned VM {}", vm.getVmid());
+
+        MultiValueMap<String, String> configParams = new LinkedMultiValueMap<>();
+
+        // VmType에 따른 리소스 조정
+        configParams.add("cores", String.valueOf(vm.getCores()));
+        configParams.add("memory", vm.getMemory());
+        configParams.add("cpu", vm.getCpu());
+
+        // SSH 키 설정
+        configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
+
+        // 네트워크 설정 (DHCP 또는 고정 IP)
+        configParams.add("ipconfig0", "dhcp");
+
+        // 추가 설정들 (필요에 따라)
+        if (vm.getCpulimit() > 0) {
+            configParams.add("cpulimit", String.valueOf(vm.getCpulimit()));
+        }
+        if (vm.getCpuunits() != 1024) {
+            configParams.add("cpuunits", String.valueOf(vm.getCpuunits()));
+        }
 
         return webClient.put()
-                .uri("/nodes/{node}/qemu/{vmid}/config", "pve", vmid)
+                .uri("/nodes/{node}/qemu/{vmid}/config", "pve", vm.getVmid())
                 .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData(params))
+                .body(BodyInserters.fromFormData(configParams))
                 .exchangeToMono(res -> {
                     if (res.statusCode().is2xxSuccessful()) {
-                        return res.bodyToMono(new ParameterizedTypeReference<>() {});
+                        return res.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
                     }
                     return res.bodyToMono(String.class)
                             .flatMap(body -> Mono.error(new IllegalStateException(
-                                    "Attach disk failed: " + res.statusCode().value() + ": " + body)));
+                                    "Customize VM failed: " + res.statusCode().value() + ": " + body)));
+                })
+                // 설정 완료 후 VM 시작 (선택사항)
+                .flatMap(result -> {
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("vmid", vm.getVmid());
+                    response.put("status", "created");
+                    response.put("message", "VM cloned and configured successfully");
+                    return Mono.just(response);
                 });
     }
+//
+//    private Mono<Map<String, Object>> importCloudImage(Integer vmid, String cloudImageName) {
+//        log.info("Importing cloud image for VM {}: {}", vmid, cloudImageName);
+//
+//        return executeQmImportDisk(vmid, cloudImageName)
+//                .then(attachImportedDisk(vmid));
+//    }
+//
+//    private Mono<Void> executeQmImportDisk(Integer vmid, String cloudImageName) {
+//        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+//        params.add("command", "qm");
+//        params.add("args", String.join(" ",
+//                "importdisk",
+//                vmid.toString(),
+//                "/var/lib/vz/template/iso/" + cloudImageName,
+//                "local-lvm"
+//        ));
+//
+//        return webClient.post()
+//                .uri("/nodes/{node}/tasks", "pve")
+//                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
+//                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+//                .body(BodyInserters.fromFormData(params))
+//                .exchangeToMono(res -> {
+//                    if (res.statusCode().is2xxSuccessful()) {
+//                        return res.bodyToMono(Void.class);
+//                    }
+//                    return res.bodyToMono(String.class)
+//                            .flatMap(body -> Mono.error(new IllegalStateException(
+//                                    "Import disk failed: " + res.statusCode().value() + ": " + body)));
+//                });
+//    }
+//
+//    private Mono<Map<String, Object>> attachImportedDisk(Integer vmid) {
+//        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+//        params.add("scsi0", "local-lvm:vm-" + vmid + "-disk-0,cache=writeback,discard=on");
+//
+//        return webClient.put()
+//                .uri("/nodes/{node}/qemu/{vmid}/config", "pve", vmid)
+//                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
+//                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+//                .body(BodyInserters.fromFormData(params))
+//                .exchangeToMono(res -> {
+//                    if (res.statusCode().is2xxSuccessful()) {
+//                        return res.bodyToMono(new ParameterizedTypeReference<>() {});
+//                    }
+//                    return res.bodyToMono(String.class)
+//                            .flatMap(body -> Mono.error(new IllegalStateException(
+//                                    "Attach disk failed: " + res.statusCode().value() + ": " + body)));
+//                });
+//    }
 
     private Mono<Map<String, Integer>> nextId() {
         return webClient.get()
