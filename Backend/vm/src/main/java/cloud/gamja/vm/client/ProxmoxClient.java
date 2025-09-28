@@ -164,7 +164,7 @@ public class ProxmoxClient {
         configParams.add("cpu", vm.getCpu());
 
         // SSH 키 설정
-        configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
+        // configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
 
         // 네트워크 설정 (DHCP 또는 고정 IP)
         configParams.add("ipconfig0", "dhcp");
