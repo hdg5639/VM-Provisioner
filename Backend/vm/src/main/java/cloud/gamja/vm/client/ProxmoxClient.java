@@ -149,11 +149,11 @@ public class ProxmoxClient {
                                     "Clone failed: " + res.statusCode().value() + ": " + body)));
                 })
                 // Clone 완료 후 VM 설정 커스터마이징
-                .flatMap(result -> customizeClonedVm(vm, vmType));
+                .flatMap(result -> customizeClonedVm(vm));
     }
 
     // Clone된 VM을 요청사항에 맞게 커스터마이징
-    private Mono<Map<String, Object>> customizeClonedVm(VmCreate vm, VmType vmType) {
+    private Mono<Map<String, Object>> customizeClonedVm(VmCreate vm) {
         log.info("Customizing cloned VM {}", vm.getVmid());
 
         MultiValueMap<String, String> configParams = new LinkedMultiValueMap<>();
@@ -167,7 +167,7 @@ public class ProxmoxClient {
         // configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
 
         // 네트워크 설정 (DHCP 또는 고정 IP)
-        configParams.add("ipconfig0", "dhcp");
+        configParams.add("ipconfig0", vm.getIpconfig0());
 
         // 추가 설정들 (필요에 따라)
         if (vm.getCpulimit() > 0) {
