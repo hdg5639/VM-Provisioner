@@ -17,7 +17,9 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.net.URLEncoder;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
 
@@ -45,6 +47,25 @@ public class ProxmoxClient {
     }
 
     private Mono<Map<String,Object>> createVmRequest(VmCreate vm) {
+        MultiValueMap<String, String> q = getStringStringMultiValueMap(vm);
+
+        return webClient.post()
+                .uri(uri -> uri.path("/nodes/{node}/qemu")
+                        .queryParams(q)
+                        .queryParam("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8)).build(vm.getNode()))
+                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData(q))
+                .exchangeToMono(res -> {
+                    if (res.statusCode().is2xxSuccessful()) {
+                        return res.bodyToMono(new ParameterizedTypeReference<>() {});
+                    }
+                    return res.bodyToMono(String.class).defaultIfEmpty("")
+                            .flatMap(body -> Mono.error(new IllegalStateException("PVE " + res.statusCode().value() + ": " + body)));
+                });
+    }
+
+    private static MultiValueMap<String, String> getStringStringMultiValueMap(VmCreate vm) {
         MultiValueMap<String,String> q = new LinkedMultiValueMap<>();
         q.add("vmid", String.valueOf(vm.getVmid()));
         q.add("name", vm.getName());
@@ -58,29 +79,14 @@ public class ProxmoxClient {
         q.add("ostype", vm.getOstype());
         q.add("pool", vm.getPool());
         q.add("agent", vm.getAgent());
+        q.add("net0", vm.getNet0());
         q.add("scsihw", vm.getScsihw());
         q.add("scsi0", vm.getScsi0());
-        q.add("net0", vm.getNet0());
-        q.add("ide0", vm.getIde0());
-        q.add("ide2", vm.getIde2());
+//        q.add("ide0", vm.getIde0());
+//        q.add("ide2", vm.getIde2());
         q.add("ciuser", vm.getCiuser());
         q.add("ipconfig0", vm.getIpconfig0());
-
-        String ssh = vm.getSshkeys().replace("\r\n", "\n").trim();
-//        q.add("sshkeys", ssh);
-
-        return webClient.post()
-                .uri(uri -> uri.path("/nodes/{node}/qemu").queryParams(q).build(vm.getNode()))
-                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData(q))
-                .exchangeToMono(res -> {
-                    if (res.statusCode().is2xxSuccessful()) {
-                        return res.bodyToMono(new ParameterizedTypeReference<>() {});
-                    }
-                    return res.bodyToMono(String.class).defaultIfEmpty("")
-                            .flatMap(body -> Mono.error(new IllegalStateException("PVE " + res.statusCode().value() + ": " + body)));
-                });
+        return q;
     }
 
     public Mono<Map<String,Object>> createVmOptimize(
@@ -118,7 +124,63 @@ public class ProxmoxClient {
                     vm.setSshkeys(tuple.getT3());
                     return vm;
                 })
-                .flatMap(this::createVmRequest);
+                .flatMap(this::createVmRequest)
+                .flatMap(result -> {
+                    Integer vmid = (Integer) result.get("vmid");
+                    return importCloudImage(vmid, "noble-server-cloudimg-amd64.img")
+                            .thenReturn(result);
+                });
+    }
+
+    private Mono<Map<String, Object>> importCloudImage(Integer vmid, String cloudImageName) {
+        log.info("Importing cloud image for VM {}: {}", vmid, cloudImageName);
+
+        return executeQmImportDisk(vmid, cloudImageName)
+                .then(attachImportedDisk(vmid));
+    }
+
+    private Mono<Void> executeQmImportDisk(Integer vmid, String cloudImageName) {
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("command", "qm");
+        params.add("args", String.join(" ",
+                "importdisk",
+                vmid.toString(),
+                "/var/lib/vz/template/iso/" + cloudImageName,
+                "local-lvm"
+        ));
+
+        return webClient.post()
+                .uri("/nodes/{node}/tasks", "pve")
+                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData(params))
+                .exchangeToMono(res -> {
+                    if (res.statusCode().is2xxSuccessful()) {
+                        return res.bodyToMono(Void.class);
+                    }
+                    return res.bodyToMono(String.class)
+                            .flatMap(body -> Mono.error(new IllegalStateException(
+                                    "Import disk failed: " + res.statusCode().value() + ": " + body)));
+                });
+    }
+
+    private Mono<Map<String, Object>> attachImportedDisk(Integer vmid) {
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("scsi0", "local-lvm:vm-" + vmid + "-disk-0,cache=writeback,discard=on");
+
+        return webClient.put()
+                .uri("/nodes/{node}/qemu/{vmid}/config", "pve", vmid)
+                .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData(params))
+                .exchangeToMono(res -> {
+                    if (res.statusCode().is2xxSuccessful()) {
+                        return res.bodyToMono(new ParameterizedTypeReference<>() {});
+                    }
+                    return res.bodyToMono(String.class)
+                            .flatMap(body -> Mono.error(new IllegalStateException(
+                                    "Attach disk failed: " + res.statusCode().value() + ": " + body)));
+                });
     }
 
     private Mono<Map<String, Integer>> nextId() {
