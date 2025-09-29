@@ -2,8 +2,12 @@ package cloud.gamja.vm.client;
 
 import cloud.gamja.vm.client.enums.Audience;
 import cloud.gamja.vm.client.record.KeyDto;
+import cloud.gamja.vm.client.record.UserDto;
 import cloud.gamja.vm.client.record.VmCreate;
+import cloud.gamja.vm.vms.VmRepository;
+import cloud.gamja.vm.vms.domain.Vm;
 import cloud.gamja.vm.vms.enums.VmType;
+import cloud.gamja.vm.vms.record.VmDetail;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +21,7 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
@@ -31,6 +36,7 @@ public class ProxmoxClient {
     private final WebClient webClient;
     private final UserServiceClient userServiceClient;
     private final TokenExchangeClient tokenExchangeClient;
+    private final VmRepository vmRepository;
 
     @Value("${custom.proxmox.token-id}")
     private String tokenId;
@@ -52,7 +58,7 @@ public class ProxmoxClient {
     }
 
     /*-----------------------VM 생성-----------------------*/
-    public Mono<Map<String,Object>> createVmOptimize(
+    public Mono<Vm> createVmOptimize(
             String subjectToken, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
         // VmId
         log.info("vmId start");
@@ -72,21 +78,54 @@ public class ProxmoxClient {
             return Mono.just(vm);
         });
         log.info("vmTemplate end");
-        // SSH key
+
         log.info("ssh key start");
-        Mono<String> sshKey = tokenExchangeClient.exchange(subjectToken, Audience.USER)
-                .map((response) -> response.get("access_token"))
-                .flatMap(token -> findByFingerprint(token, fingerprint));
+        Mono<String> userAccessToken = tokenExchangeClient.exchange(subjectToken, Audience.USER)
+                .map(m -> m.get("access_token"))
+                .switchIfEmpty(Mono.error(new IllegalStateException("token-exchange: empty token")))
+                .timeout(Duration.ofSeconds(4))
+                .onErrorMap(e -> new IllegalStateException("token-exchange failed: " + e.getMessage(), e))
+                .cache(Duration.ofSeconds(45));
+
+        // 사용자 정보/키 조회
+        Mono<UserDto> meMono = userAccessToken.flatMap(userServiceClient::getMe)
+                .timeout(Duration.ofSeconds(4))
+                .onErrorMap(e -> new IllegalStateException("getMe failed: " + e.getMessage(), e));
+
+        Mono<String> sshKeyMono = userAccessToken
+                .flatMap(tok -> findByFingerprint(tok, fingerprint))
+                .timeout(Duration.ofSeconds(4))
+                .onErrorMap(e -> new IllegalStateException("find sshkey failed: " + e.getMessage(), e));
+
         log.info("sshKey end");
 
         log.info("Create vm start");
-        return Mono.zip(vmIdMono, vmTemplateMono, sshKey)
+        return Mono.zip(vmIdMono, vmTemplateMono, sshKeyMono, meMono)
                 .flatMap(tuple -> {
                     VmCreate vm = tuple.getT2();
                     vm.setVmid(tuple.getT1());
                     vm.setSshkeys(tuple.getT3());
-                    return cloneFromTemplate(vm, vmType);
+
+                    VmDetail vmDetail = new VmDetail(
+                            vmType,
+                            vm.getVmid(),
+                            vm.getName(),
+                            vm.getCores(),
+                            Integer.parseInt(vm.getMemory()),
+                            Integer.parseInt(vm.getScsi0())
+                    );
+                    return cloneFromTemplate(vm, vmType)
+                            .flatMap(response ->
+                                    Mono.fromCallable(() ->
+                                                    vmRepository.save(Vm.builder()
+                                                            .ownerUserId(tuple.getT4().id())
+                                                            .detail(vmDetail)
+                                                            .build())
+                                    )
+                                    .subscribeOn(Schedulers.boundedElastic())
+                            );
                 });
+
     }
 
     // 템플릿 클론
