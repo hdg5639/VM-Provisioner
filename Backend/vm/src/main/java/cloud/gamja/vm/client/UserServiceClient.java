@@ -28,6 +28,14 @@ public class UserServiceClient {
                 .bodyToMono(UserDto.class);
     }
 
+    public Mono<UserDto> getMe(String exchangedToken) {
+        return webClient.get()
+                .uri(baseUrl + "/api/users")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + exchangedToken)
+                .retrieve()
+                .bodyToMono(UserDto.class);
+    }
+
     public Mono<List<KeyDto>> getSshKeys(String exchangedToken) {
         return webClient.get()
                 .uri(baseUrl + "/api/keys")

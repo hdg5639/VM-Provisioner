@@ -52,7 +52,7 @@ public class ProxmoxClient {
     }
 
     /*-----------------------VM 생성-----------------------*/
-    public Mono<Map<String,Object>> createVmOptimize(
+    public Mono<Map<String, Object>> createVmOptimize(
             String subjectToken, String fingerprint, VmType vmType, String name, Integer disk, String ide) {
         // VmId
         log.info("vmId start");
@@ -85,7 +85,14 @@ public class ProxmoxClient {
                     VmCreate vm = tuple.getT2();
                     vm.setVmid(tuple.getT1());
                     vm.setSshkeys(tuple.getT3());
-                    return cloneFromTemplate(vm, vmType);
+                    Mono<Map<String, Object>> result = cloneFromTemplate(vm, vmType);
+
+                    return Mono.zip(result, Mono.just(vm))
+                            .flatMap(body -> {
+                                Map<String, Object> map = body.getT1();
+                                map.put("vm", body.getT2());
+                                return Mono.just(map);
+                            });
                 });
     }
 
