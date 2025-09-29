@@ -15,12 +15,14 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 
 @Slf4j
@@ -120,11 +122,16 @@ public class ProxmoxClient {
 
         MultiValueMap<String, String> configParams = getStringStringMultiValueMap(vm);
 
+        String encodedBody = UriComponentsBuilder.newInstance()
+                .queryParams(configParams)
+                .build()
+                .getQuery();
+
         return webClient.put()
                 .uri("/nodes/{node}/qemu/{vmid}/config", "pve", vm.getVmid())
                 .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData(configParams))
+                .bodyValue(Objects.requireNonNull(encodedBody))
                 .exchangeToMono(res -> {
                     if (res.statusCode().is2xxSuccessful()) {
                         return res.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
