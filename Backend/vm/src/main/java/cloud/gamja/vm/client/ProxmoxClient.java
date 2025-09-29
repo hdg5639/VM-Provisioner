@@ -15,11 +15,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
 
-import java.net.URLEncoder;
 import java.net.http.HttpTimeoutException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -154,7 +153,7 @@ public class ProxmoxClient {
         configParams.add("cpu", vm.getCpu());
 
         // SSH 키 설정
-        configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
+        configParams.add("sshkeys", UriUtils.encode(vm.getSshkeys(), "UTF-8"));
         log.info("ssh key: {}", configParams.get("sshkeys"));
 
         configParams.add("ipconfig0", vm.getIpconfig0());
