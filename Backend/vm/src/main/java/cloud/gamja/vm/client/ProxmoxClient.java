@@ -112,7 +112,7 @@ public class ProxmoxClient {
                             vm.getName(),
                             vm.getCores(),
                             Integer.parseInt(vm.getMemory()),
-                            Integer.parseInt(vm.getScsi0())
+                            disk
                     );
                     return cloneFromTemplate(vm, vmType)
                             .flatMap(response ->
