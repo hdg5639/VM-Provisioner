@@ -153,7 +153,7 @@ public class ProxmoxClient {
 
         // SSH 키 설정
         // URL Encoder 애러 나서 일단 주석처리
-        // configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
+         configParams.add("sshkeys", vm.getSshkeys());
 
         configParams.add("ipconfig0", vm.getIpconfig0());
 
