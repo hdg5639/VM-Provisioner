@@ -1,5 +1,6 @@
 package cloud.gamja.vm.vms;
 
+import cloud.gamja.vm.vmevent.record.EventInfo;
 import cloud.gamja.vm.vms.record.VmRequest;
 import cloud.gamja.vm.vms.service.VmService;
 import lombok.RequiredArgsConstructor;
@@ -31,8 +32,8 @@ public class VmController {
 
     // Test
     @PostMapping("/vm")
-    public Mono<Map<String, Object>> createVm( JwtAuthenticationToken auth,
-                                               @RequestBody VmRequest vmRequest) {
+    public Mono<EventInfo> createVm(JwtAuthenticationToken auth,
+                                    @RequestBody VmRequest vmRequest) {
         log.info("Create vm start");
         log.info("Request: {}", vmRequest);
         log.info("Token sub: {}", sub(auth));
