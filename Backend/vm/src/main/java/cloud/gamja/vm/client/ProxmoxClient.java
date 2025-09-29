@@ -15,14 +15,14 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
+import java.net.URLEncoder;
 import java.net.http.HttpTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 
 @Slf4j
@@ -122,16 +122,11 @@ public class ProxmoxClient {
 
         MultiValueMap<String, String> configParams = getStringStringMultiValueMap(vm);
 
-        String encodedBody = UriComponentsBuilder.newInstance()
-                .queryParams(configParams)
-                .build()
-                .getQuery();
-
         return webClient.put()
                 .uri("/nodes/{node}/qemu/{vmid}/config", "pve", vm.getVmid())
                 .header(HttpHeaders.AUTHORIZATION, "PVEAPIToken " + tokenId + "=" + tokenValue)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .bodyValue(Objects.requireNonNull(encodedBody))
+                .body(BodyInserters.fromFormData(configParams))
                 .exchangeToMono(res -> {
                     if (res.statusCode().is2xxSuccessful()) {
                         return res.bodyToMono(new ParameterizedTypeReference<Map<String, Object>>() {});
@@ -159,8 +154,8 @@ public class ProxmoxClient {
         configParams.add("cpu", vm.getCpu());
 
         // SSH 키 설정
-        // URL Encoder 애러 나서 일단 주석처리
-         configParams.add("sshkeys", vm.getSshkeys());
+        configParams.add("sshkeys", URLEncoder.encode(vm.getSshkeys(), StandardCharsets.UTF_8));
+        log.info("ssh key: {}", configParams.get("sshkeys"));
 
         configParams.add("ipconfig0", vm.getIpconfig0());
 
