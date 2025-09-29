@@ -30,7 +30,7 @@ public class UserServiceClient {
 
     public Mono<UserDto> getMe(String exchangedToken) {
         return webClient.get()
-                .uri(baseUrl + "/api/users")
+                .uri(baseUrl + "/api/users/me")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + exchangedToken)
                 .retrieve()
                 .bodyToMono(UserDto.class);
