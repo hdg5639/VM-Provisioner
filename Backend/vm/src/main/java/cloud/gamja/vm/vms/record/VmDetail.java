@@ -4,10 +4,11 @@ import cloud.gamja.vm.vms.enums.VmType;
 
 public record VmDetail(
         VmType vmType,
+        Integer vmid,
         String name,
         Integer cpu,
-        Integer ramMb,
-        Integer diskGb,
+        Integer ram,
+        Integer disk,
         Integer node
 ) {
 }
