@@ -44,10 +44,11 @@ public class VmService {
                 .flatMap(response -> userServiceClient.getMe(response.get("access_token")));
         return Mono.zip(created, userInfo)
                 .flatMap(tuple -> Mono.fromCallable(() -> vmEventRepository.save(VmEvent.builder()
-                        .vm(tuple.getT1())
-                        .actorUserId(tuple.getT2().id())
-                        .action(Actions.CREATE)
-                        .build()))
+                                .vm(tuple.getT1())
+                                .actorUserId(tuple.getT2().id())
+                                .action(Actions.CREATE)
+                                .payload(Map.of("test", "test payload"))
+                                .build()))
                 .subscribeOn(Schedulers.boundedElastic()))
                 .map(saved -> new EventInfo(
                         saved.getVm().getDetail().vmid(),

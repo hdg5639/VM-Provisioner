@@ -12,7 +12,9 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "vm_events")
+@Table(name = "vm_events", indexes = {
+        @Index(name = "idx_vm_event_actor", columnList = "actorUserId")
+})
 @Builder
 @Getter
 @Setter
@@ -29,7 +31,7 @@ public class VmEvent {
     @JoinColumn(name = "vm_id", nullable = false)
     private Vm vm;
 
-    @Column(name = "actor_user_id", nullable = false, unique = true)
+    @Column(name = "actor_user_id", nullable = false)
     @JdbcTypeCode(SqlTypes.BINARY)
     private UUID actorUserId;
 
