@@ -11,11 +11,13 @@ spring:
   application:
     name: vm
 
-  datasource:
-    driver-class-name: ${DATABASE_NAME}
+  flyway:
     url: ${DATABASE_URL}
-    username: ${DATABASE_USERNAME}
+    user: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
+    create-schemas: true
+    schemas: ${DATABASE_NAME}
+    locations: classpath:db/migration
 
   r2dbc:
     url: ${DATABASE_REACTIVE_URL}
