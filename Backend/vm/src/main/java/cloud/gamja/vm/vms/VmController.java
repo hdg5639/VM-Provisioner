@@ -1,12 +1,14 @@
 package cloud.gamja.vm.vms;
 
 import cloud.gamja.vm.vmevent.record.EventInfo;
+import cloud.gamja.vm.vms.domain.Vm;
 import cloud.gamja.vm.vms.record.VmRequest;
 import cloud.gamja.vm.vms.service.VmService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
@@ -21,9 +23,6 @@ public class VmController {
     private String acessToken(JwtAuthenticationToken auth) {
         return auth.getToken().getTokenValue();
     }
-    private String sub(JwtAuthenticationToken auth) {
-        return auth.getToken().getSubject();
-    }
 
     @GetMapping("/test")
     public Mono<Map<String, Object>> testCall() {
@@ -36,12 +35,17 @@ public class VmController {
                                     @RequestBody VmRequest vmRequest) {
         log.info("Create vm start");
         log.info("Request: {}", vmRequest);
-        log.info("Token sub: {}", sub(auth));
         return vmService.createVm(acessToken(auth),
                 vmRequest.fingerprint(),
                 vmRequest.vmType(),
                 vmRequest.name(),
                 vmRequest.disk(),
                 vmRequest.ide());
+    }
+
+    @GetMapping("/vm")
+    public Flux<Vm> getVmList(JwtAuthenticationToken auth) {
+        log.info("Get vm list");
+        return vmService.vmList(acessToken(auth));
     }
 }

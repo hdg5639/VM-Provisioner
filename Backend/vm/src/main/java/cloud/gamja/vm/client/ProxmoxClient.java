@@ -4,10 +4,10 @@ import cloud.gamja.vm.client.enums.Audience;
 import cloud.gamja.vm.client.record.KeyDto;
 import cloud.gamja.vm.client.record.UserDto;
 import cloud.gamja.vm.client.record.VmCreate;
-import cloud.gamja.vm.vms.VmRepository;
 import cloud.gamja.vm.vms.domain.Vm;
 import cloud.gamja.vm.vms.enums.VmType;
 import cloud.gamja.vm.vms.record.VmDetail;
+import cloud.gamja.vm.vms.VmRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +21,6 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
@@ -116,13 +115,10 @@ public class ProxmoxClient {
                     );
                     return cloneFromTemplate(vm, vmType)
                             .flatMap(response ->
-                                    Mono.fromCallable(() ->
-                                                    vmRepository.save(Vm.builder()
-                                                            .ownerUserId(tuple.getT4().id())
-                                                            .detail(vmDetail)
-                                                            .build())
-                                    )
-                                    .subscribeOn(Schedulers.boundedElastic())
+                                    vmRepository.save(Vm.builder()
+                                            .ownerUserId(tuple.getT4().id())
+                                            .detail(vmDetail)
+                                            .build())
                             );
                 });
 

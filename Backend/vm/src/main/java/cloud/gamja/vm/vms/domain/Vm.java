@@ -38,9 +38,14 @@ public class Vm {
     @JdbcTypeCode(SqlTypes.JSON)
     private VmDetail detail;
 
+    private Boolean active;
+
     private Instant createdAt;
     private Instant updatedAt;
 
-    @PrePersist void onC(){createdAt=updatedAt=Instant.now();}
+    @PrePersist void onC(){
+        createdAt=updatedAt=Instant.now();
+        active=true;
+    }
     @PreUpdate  void onU(){updatedAt=Instant.now();}
 }

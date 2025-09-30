@@ -6,8 +6,9 @@ import cloud.gamja.vm.vmevent.record.EventInfo;
 import cloud.gamja.vm.vms.domain.Vm;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -16,21 +17,20 @@ import java.util.UUID;
 public class VmEventService {
     private final VmEventRepository vmEventRepository;
 
-    public EventInfo record(Vm vm, UUID actorUserId, Actions action, Map<String, Object> payload) {
-        VmEvent saved = vmEventRepository.save(VmEvent.builder()
+    public Mono<EventInfo> record(Vm vm, UUID actorUserId, Actions action, Map<String, Object> payload) {
+        return vmEventRepository.save(VmEvent.builder()
                 .vm(vm)
                 .actorUserId(actorUserId)
                 .action(action)
                 .payload(payload)
-                .build());
+                .build())
+                .map(this::convert);
 
-        return convert(saved);
     }
 
-    public List<EventInfo> getVmEvents(Vm vm) {
+    public Flux<EventInfo> getVmEvents(Vm vm) {
         return vmEventRepository.findByVm(vm)
-                .stream().map(this::convert)
-                .toList();
+                .map(this::convert);
     }
 
     private EventInfo convert(VmEvent vmEvent) {

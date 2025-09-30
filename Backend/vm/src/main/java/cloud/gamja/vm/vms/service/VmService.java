@@ -11,27 +11,32 @@ import cloud.gamja.vm.vmevent.enums.Actions;
 import cloud.gamja.vm.vmevent.record.EventInfo;
 import cloud.gamja.vm.vms.domain.Vm;
 import cloud.gamja.vm.vms.enums.VmType;
+import cloud.gamja.vm.vms.VmRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
+import java.time.Duration;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class VmService {
-    private final VmEventRepository vmEventRepository;
     private final ProxmoxClient proxmoxClient;
     private final UserServiceClient userServiceClient;
     private final TokenExchangeClient tokenExchangeClient;
+    private final VmRepository vmRepository;
+    private final VmEventRepository vmEventRepository;
 
     public Mono<Map<String, Object>> listNodes() {
         return proxmoxClient.getNodes();
     }
 
+    /*-----------------------VM 생성-----------------------*/
     public Mono<EventInfo> createVm( String subjectToken,
                                                String fingerprint,
                                                VmType vmType,
@@ -43,19 +48,32 @@ public class VmService {
         Mono<UserDto> userInfo = tokenExchangeClient.exchange(subjectToken, Audience.USER)
                 .flatMap(response -> userServiceClient.getMe(response.get("access_token")));
         return Mono.zip(created, userInfo)
-                .flatMap(tuple -> Mono.fromCallable(() -> vmEventRepository.save(VmEvent.builder()
+                .flatMap(tuple ->
+                        vmEventRepository.save(VmEvent.builder()
                                 .vm(tuple.getT1())
                                 .actorUserId(tuple.getT2().id())
                                 .action(Actions.CREATE)
                                 .payload(Map.of("test", "test payload"))
-                                .build()))
-                .subscribeOn(Schedulers.boundedElastic()))
-                .map(saved -> new EventInfo(
+                                .build())
+                ).map(saved -> new EventInfo(
                         saved.getVm().getDetail().vmid(),
                         saved.getActorUserId(),
                         saved.getAction(),
                         saved.getPayload(),
                         saved.getTimestamp()
                 ));
+    }
+
+    /*-----------------------VM 리스트 조회-----------------------*/
+    public Flux<Vm> vmList(String subjectToken) {
+        Mono<String> accessToken = tokenExchangeClient.exchange(subjectToken, Audience.USER)
+                .map(m -> m.get("access_token"))
+                .cache(Duration.ofSeconds(30));
+
+        Mono<UUID> ownerId = accessToken
+                .flatMap(userServiceClient::getMe)
+                .map(UserDto::id);
+
+        return ownerId.flatMapMany(vmRepository::findByOwnerUserId);
     }
 }
