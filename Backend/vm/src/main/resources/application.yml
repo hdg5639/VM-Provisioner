@@ -15,9 +15,9 @@ spring:
     url: ${DATABASE_URL}
     user: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
-    create-schemas: true
-    schemas: ${DATABASE_NAME}
     locations: classpath:db/migration
+    create-schemas: true
+    default-schema: ${DATABASE_SCHEMA}
 
   r2dbc:
     url: ${DATABASE_REACTIVE_URL}
@@ -28,18 +28,6 @@ spring:
       initial-size: 10
       max-size: 50
       max-idle-time: 30s
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    properties:
-      hibernate:
-        type:
-          preferred_uuid_jdbc_type: BINARY
-        show_sql: true
-        jdbc:
-          time_zone: Asia/Seoul
-        dialect: ${DATABASE_DIALECT}
 
   security:
     oauth2:
