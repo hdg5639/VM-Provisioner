@@ -47,21 +47,24 @@ public class VmService {
         Mono<Vm> created = proxmoxClient.createVmOptimize(subjectToken, fingerprint, vmType, name, disk, ide);
         Mono<UserDto> userInfo = tokenExchangeClient.exchange(subjectToken, Audience.USER)
                 .flatMap(response -> userServiceClient.getMe(response.get("access_token")));
-        return Mono.zip(created, userInfo)
+
+        Mono<VmEvent> vmEventMono = Mono.zip(created, userInfo)
                 .flatMap(tuple ->
                         vmEventRepository.save(VmEvent.builder()
-                                .vm(tuple.getT1())
+                                .vmId(tuple.getT1().getId())
                                 .actorUserId(tuple.getT2().id())
                                 .action(Actions.CREATE)
-                                .payload(Map.of("test", "test payload"))
+                                .payload("test payload")
                                 .build())
-                ).map(saved -> new EventInfo(
-                        saved.getVm().getDetail().vmid(),
-                        saved.getActorUserId(),
-                        saved.getAction(),
-                        saved.getPayload(),
-                        saved.getTimestamp()
-                ));
+                );
+        return vmEventMono.flatMap(saved -> vmRepository.findById(saved.getVmId())
+                        .map(body -> new EventInfo(
+                                body.getDetail().vmid(),
+                                saved.getActorUserId(),
+                                saved.getAction(),
+                                saved.getPayload(),
+                                saved.getTimestamp()
+                        )));
     }
 
     /*-----------------------VM 리스트 조회-----------------------*/

@@ -1,40 +1,35 @@
 package cloud.gamja.vm.vmkey.domain;
 
-import cloud.gamja.vm.vms.domain.Vm;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
 import java.util.UUID;
 
-@Entity
-@Table(name = "vm_keys")
-@Builder
+@Table("vm_keys")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class VmKey {
+
     @Id
-    @GeneratedValue(strategy= GenerationType.UUID)
-    @Column(name = "id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
-    @JdbcTypeCode(SqlTypes.BINARY)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "vm_id", nullable = false)
-    private Vm vm;
+    @Column("vm_id")
+    private UUID vmId;
 
-    @Column(nullable=false)
+    @Column("key_name")
     private String keyName;
 
-    @Column(nullable=false, unique=true)
+    @Column("fingerprint")
     private String fingerprint;
 
+    @CreatedDate
+    @Column("created_at")
     private Instant createdAt;
-
-    @PrePersist
-    void onC(){createdAt= Instant.now();}
 }

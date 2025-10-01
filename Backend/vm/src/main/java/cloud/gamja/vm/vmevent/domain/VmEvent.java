@@ -1,49 +1,39 @@
 package cloud.gamja.vm.vmevent.domain;
 
 import cloud.gamja.vm.vmevent.enums.Actions;
-import cloud.gamja.vm.vms.domain.Vm;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 
-@Entity
-@Table(name = "vm_events", indexes = {
-        @Index(name = "idx_vm_event_actor", columnList = "actorUserId")
-})
-@Builder
+@Table("vm_events")
 @Getter
 @Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class VmEvent {
+
     @Id
-    @GeneratedValue(strategy= GenerationType.UUID)
-    @Column(name = "id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
-    @JdbcTypeCode(SqlTypes.BINARY)
     private UUID id;
 
-    @ManyToOne(fetch=FetchType.LAZY)
-    @JoinColumn(name = "vm_id", nullable = false)
-    private Vm vm;
+    @Column("vm_id")
+    private UUID vmId;
 
-    @Column(name = "actor_user_id", nullable = false)
-    @JdbcTypeCode(SqlTypes.BINARY)
+    @Column("actor_user_id")
     private UUID actorUserId;
 
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
+    @Column("action")
     private Actions action;
 
-    @Column(nullable = false)
-    @JdbcTypeCode(SqlTypes.JSON)
-    private Map<String, Object> payload;
+    @Column("payload")
+    private String payload;
 
+    @CreatedDate
+    @Column("timestamp")
     private Instant timestamp;
-
-    @PrePersist void onCreate() {timestamp = Instant.now();}
 }
