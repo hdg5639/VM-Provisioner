@@ -30,7 +30,7 @@ public class VmEventService {
     }
 
     public Flux<EventInfo> getVmEvents(Vm vm) {
-        return vmEventRepository.findByVm(vm)
+        return vmEventRepository.findByVmId(vm.getId())
                 .flatMap(this::convert);
     }
 
