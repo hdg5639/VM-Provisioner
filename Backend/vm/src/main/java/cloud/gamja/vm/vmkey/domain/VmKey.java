@@ -1,7 +1,5 @@
 package cloud.gamja.vm.vmkey.domain;
 
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -20,7 +18,6 @@ import java.util.UUID;
 public class VmKey {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @Column("vm_id")
