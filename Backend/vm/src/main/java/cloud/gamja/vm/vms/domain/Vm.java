@@ -20,24 +20,24 @@ import java.util.UUID;
 public class Vm {
 
     @Id
-    private UUID id;
+    UUID id;
 
     @Column("owner_user_id")
-    private UUID ownerUserId;
+    UUID ownerUserId;
 
     @Column("owner_tenant_id")
-    private UUID ownerTenantId;
+    UUID ownerTenantId;
 
     @Column("detail")
-    private VmDetail detail;
+    VmDetail detail;
 
-    private Boolean active;
+    Boolean active;
 
     @CreatedDate
     @Column("created_at")
-    private Instant createdAt;
+    Instant createdAt;
 
     @LastModifiedDate
     @Column("updated_at")
-    private Instant updatedAt;
+    Instant updatedAt;
 }

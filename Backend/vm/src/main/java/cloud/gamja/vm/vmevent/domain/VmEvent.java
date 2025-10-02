@@ -19,21 +19,21 @@ import java.util.UUID;
 public class VmEvent {
 
     @Id
-    private UUID id;
+    UUID id;
 
     @Column("vm_id")
-    private UUID vmId;
+    UUID vmId;
 
     @Column("actor_user_id")
-    private UUID actorUserId;
+    UUID actorUserId;
 
     @Column("action")
-    private Actions action;
+    Actions action;
 
     @Column("payload")
-    private String payload;
+    String payload;
 
     @CreatedDate
     @Column("timestamp")
-    private Instant timestamp;
+    Instant timestamp;
 }
