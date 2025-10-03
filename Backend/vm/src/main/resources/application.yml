@@ -51,3 +51,8 @@ custom:
     template:
       free: ${PROXMOX_FREE}
       pro: ${PROXMOX_PRO}
+
+logging:
+  level:
+    org.springframework.data.r2dbc: DEBUG
+    org.springframework.data.relational.core.mapping: DEBUG

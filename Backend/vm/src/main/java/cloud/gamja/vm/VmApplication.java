@@ -6,7 +6,7 @@ import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 
 import java.util.TimeZone;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = "cloud.gamja")
 @EnableR2dbcRepositories(basePackages = "cloud.gamja")
 public class VmApplication {
 
