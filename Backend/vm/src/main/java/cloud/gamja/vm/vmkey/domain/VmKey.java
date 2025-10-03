@@ -18,18 +18,18 @@ import java.util.UUID;
 public class VmKey {
 
     @Id
-    UUID id;
+    private UUID id;
 
     @Column("vm_id")
-    UUID vmId;
+    private UUID vmId;
 
     @Column("key_name")
-    String keyName;
+    private String keyName;
 
     @Column("fingerprint")
-    String fingerprint;
+    private String fingerprint;
 
     @CreatedDate
     @Column("created_at")
-    Instant createdAt;
+    private Instant createdAt;
 }
