@@ -22,11 +22,10 @@ public class VmEventService {
         return vmEventRepository.save(VmEvent.builder()
                 .vmId(vm.getId())
                 .actorUserId(actorUserId)
-                .action(action)
+                .action(action.name())
                 .payload(payload)
                 .build())
                 .flatMap(this::convert);
-
     }
 
     public Flux<EventInfo> getVmEvents(Vm vm) {
