@@ -26,6 +26,7 @@ import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 
 @Slf4j
@@ -116,8 +117,10 @@ public class ProxmoxClient {
                     return cloneFromTemplate(vm, vmType)
                             .flatMap(response ->
                                     vmRepository.save(Vm.builder()
+                                            .id(UUID.randomUUID())
                                             .ownerUserId(tuple.getT4().id())
                                             .detail(vmDetail)
+                                            .active(true)
                                             .build())
                             );
                 });

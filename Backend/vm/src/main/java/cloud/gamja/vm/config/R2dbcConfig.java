@@ -1,5 +1,6 @@
 package cloud.gamja.vm.config;
 
+import cloud.gamja.vm.vmevent.enums.Actions;
 import cloud.gamja.vm.vms.record.VmDetail;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +28,9 @@ public class R2dbcConfig {
     public R2dbcCustomConversions r2dbcCustomConversions(ObjectMapper objectMapper) {
         return R2dbcCustomConversions.of(PostgresDialect.INSTANCE, List.of(
                 new VmDetailWritingConverter(objectMapper),
-                new VmDetailReadingConverter(objectMapper)
+                new VmDetailReadingConverter(objectMapper),
+                new ActionsWritingConverter(),
+                new ActionsReadingConverter()
         ));
     }
 
@@ -64,6 +67,22 @@ public class R2dbcConfig {
             } catch (IOException e) {
                 throw new IllegalStateException("Failed to convert JSON to VmDetail", e);
             }
+        }
+    }
+
+    @WritingConverter
+    static class ActionsWritingConverter implements Converter<Actions, String> {
+        @Override
+        public String convert(Actions source) {
+            return source.name().toLowerCase(); // 또는 source.name()
+        }
+    }
+
+    @ReadingConverter
+    static class ActionsReadingConverter implements Converter<String, Actions> {
+        @Override
+        public Actions convert(String source) {
+            return Actions.valueOf(source.toUpperCase()); // 또는 valueOf(source)
         }
     }
 }
