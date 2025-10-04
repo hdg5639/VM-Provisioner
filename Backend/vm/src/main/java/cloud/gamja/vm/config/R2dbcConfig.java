@@ -4,13 +4,16 @@ import cloud.gamja.vm.vms.record.VmDetail;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.r2dbc.postgresql.codec.Json;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
-import org.springframework.data.convert.CustomConversions;
-import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
+import org.springframework.data.convert.ReadingConverter;
+import org.springframework.data.convert.WritingConverter;
 import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
+import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
+import org.springframework.data.r2dbc.dialect.PostgresDialect;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,43 +23,46 @@ import java.util.List;
 @RequiredArgsConstructor
 public class R2dbcConfig {
 
-    private final ObjectMapper objectMapper;
-
     @Bean
-    R2dbcCustomConversions r2dbcCustomConversions() {
-        return new R2dbcCustomConversions(
-                CustomConversions.StoreConversions.NONE,
-                List.of(
-                        new VmDetailWriteConverter(objectMapper),
-                        new VmDetailReadConverter(objectMapper)
-                )
-        );
+    public R2dbcCustomConversions r2dbcCustomConversions(ObjectMapper objectMapper) {
+        return R2dbcCustomConversions.of(PostgresDialect.INSTANCE, List.of(
+                new VmDetailWritingConverter(objectMapper),
+                new VmDetailReadingConverter(objectMapper)
+        ));
     }
 
-    // VmDetail -> Json (DB 쓰기)
-    static class VmDetailWriteConverter implements Converter<VmDetail, Json> {
-        private final ObjectMapper om;
-        VmDetailWriteConverter(ObjectMapper om) { this.om = om; }
+    @WritingConverter
+    static class VmDetailWritingConverter implements Converter<VmDetail, Json> {
+        private final ObjectMapper objectMapper;
 
-        @Override public Json convert(VmDetail source) {
+        public VmDetailWritingConverter(ObjectMapper objectMapper) {
+            this.objectMapper = objectMapper;
+        }
+
+        @Override
+        public Json convert(@NonNull VmDetail source) {
             try {
-                return Json.of(om.writeValueAsString(source));
+                return Json.of(objectMapper.writeValueAsString(source));
             } catch (JsonProcessingException e) {
-                throw new IllegalArgumentException("Serialize VmDetail failed", e);
+                throw new IllegalStateException("Failed to convert VmDetail to JSON", e);
             }
         }
     }
 
-    // Json -> VmDetail (DB 읽기)
-    static class VmDetailReadConverter implements Converter<Json, VmDetail> {
-        private final ObjectMapper om;
-        VmDetailReadConverter(ObjectMapper om) { this.om = om; }
+    @ReadingConverter
+    static class VmDetailReadingConverter implements Converter<Json, VmDetail> {
+        private final ObjectMapper objectMapper;
 
-        @Override public VmDetail convert(Json source) {
+        public VmDetailReadingConverter(ObjectMapper objectMapper) {
+            this.objectMapper = objectMapper;
+        }
+
+        @Override
+        public VmDetail convert(Json source) {
             try {
-                return om.readValue(source.asString(), VmDetail.class);
+                return objectMapper.readValue(source.asString(), VmDetail.class);
             } catch (IOException e) {
-                throw new IllegalArgumentException("Deserialize VmDetail failed", e);
+                throw new IllegalStateException("Failed to convert JSON to VmDetail", e);
             }
         }
     }
