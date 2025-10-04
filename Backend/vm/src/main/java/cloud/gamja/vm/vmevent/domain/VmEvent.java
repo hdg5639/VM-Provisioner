@@ -1,6 +1,5 @@
 package cloud.gamja.vm.vmevent.domain;
 
-import cloud.gamja.vm.vmevent.enums.Actions;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -28,7 +27,7 @@ public class VmEvent {
     private UUID actorUserId;
 
     @Column("action")
-    private Actions action;
+    private String action;
 
     @Column("payload")
     private String payload;

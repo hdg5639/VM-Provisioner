@@ -53,7 +53,7 @@ public class VmService {
                         vmEventRepository.save(VmEvent.builder()
                                 .vmId(tuple.getT1().getId())
                                 .actorUserId(tuple.getT2().id())
-                                .action(Actions.CREATE)
+                                .action(Actions.CREATE.name())
                                 .payload("test payload")
                                 .build())
                 );
