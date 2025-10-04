@@ -51,7 +51,6 @@ public class VmService {
         Mono<VmEvent> vmEventMono = Mono.zip(created, userInfo)
                 .flatMap(tuple ->
                         vmEventRepository.save(VmEvent.builder()
-                                .id(UUID.randomUUID())
                                 .vmId(tuple.getT1().getId())
                                 .actorUserId(tuple.getT2().id())
                                 .action(Actions.CREATE)
