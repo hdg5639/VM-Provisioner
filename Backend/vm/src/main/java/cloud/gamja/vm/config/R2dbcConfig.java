@@ -74,15 +74,15 @@ public class R2dbcConfig {
     static class ActionsWritingConverter implements Converter<Actions, String> {
         @Override
         public String convert(Actions source) {
-            return source.name().toLowerCase(); // 또는 source.name()
+            return source.name(); // 또는 source.name()
         }
     }
 
     @ReadingConverter
     static class ActionsReadingConverter implements Converter<String, Actions> {
         @Override
-        public Actions convert(String source) {
-            return Actions.valueOf(source.toUpperCase()); // 또는 valueOf(source)
+        public Actions convert(@NonNull String source) {
+            return Actions.valueOf(source); // 또는 valueOf(source)
         }
     }
 }
