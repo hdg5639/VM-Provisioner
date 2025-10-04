@@ -15,6 +15,7 @@ import org.springframework.data.convert.WritingConverter;
 import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
 import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
 import org.springframework.data.r2dbc.dialect.PostgresDialect;
+import io.r2dbc.postgresql.codec.EnumCodec.*;
 
 import java.io.IOException;
 import java.util.List;
@@ -71,10 +72,10 @@ public class R2dbcConfig {
     }
 
     @WritingConverter
-    static class ActionsWritingConverter implements Converter<Actions, String> {
+    static class ActionsWritingConverter implements Converter<Actions, Actions> {
         @Override
-        public String convert(Actions source) {
-            return source.name(); // 또는 source.name()
+        public Actions convert(@NonNull Actions source) {
+            return source;
         }
     }
 
