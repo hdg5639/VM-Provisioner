@@ -20,7 +20,7 @@ import java.util.Map;
 public class VmController {
     private final VmService vmService;
 
-    private String acessToken(JwtAuthenticationToken auth) {
+    private String accessToken(JwtAuthenticationToken auth) {
         return auth.getToken().getTokenValue();
     }
 
@@ -35,7 +35,7 @@ public class VmController {
                                     @RequestBody VmRequest vmRequest) {
         log.info("Create vm start");
         log.info("Request: {}", vmRequest);
-        return vmService.createVm(acessToken(auth),
+        return vmService.createVm(accessToken(auth),
                 vmRequest.fingerprint(),
                 vmRequest.vmType(),
                 vmRequest.name(),
@@ -46,6 +46,6 @@ public class VmController {
     @GetMapping("/vm")
     public Flux<Vm> getVmList(JwtAuthenticationToken auth) {
         log.info("Get vm list");
-        return vmService.vmList(acessToken(auth));
+        return vmService.vmList(accessToken(auth));
     }
 }
