@@ -8,6 +8,9 @@ import cloud.gamja.vm.vms.domain.Vm;
 import cloud.gamja.vm.vms.enums.VmType;
 import cloud.gamja.vm.vms.record.VmDetail;
 import cloud.gamja.vm.vms.VmRepository;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,12 +24,14 @@ import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriUtils;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.net.http.HttpTimeoutException;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-
+import java.util.Optional;
+import java.util.stream.StreamSupport;
 
 
 @Slf4j
@@ -101,29 +106,44 @@ public class ProxmoxClient {
 
         log.info("Create vm start");
         return Mono.zip(vmIdMono, vmTemplateMono, sshKeyMono, meMono)
-                .flatMap(tuple -> {
-                    VmCreate vm = tuple.getT2();
-                    vm.setVmid(tuple.getT1());
-                    vm.setSshkeys(tuple.getT3());
+                .flatMap(t -> {
+                    Integer vmId = t.getT1();
+                    VmCreate vm = t.getT2();
+                    vm.setVmid(vmId);
+                    vm.setSshkeys(t.getT3());
 
-                    VmDetail vmDetail = new VmDetail(
-                            vmType,
-                            vm.getVmid(),
-                            vm.getName(),
-                            vm.getCores(),
-                            Integer.parseInt(vm.getMemory()),
-                            disk
-                    );
-                    return cloneFromTemplate(vm, vmType)
-                            .flatMap(response ->
-                                    vmRepository.save(Vm.builder()
-                                            .ownerUserId(tuple.getT4().id())
-                                            .detail(vmDetail)
-                                            .active(true)
-                                            .build())
+                    // 템플릿 클론
+                    Mono<?> cloneStep = cloneFromTemplate(vm, vmType);
+
+                    // VM 시작
+                    Mono<?> startStep = cloneStep.then(Mono.fromRunnable(() -> startVm(vmId)));
+
+                    // IP 획득
+                    Mono<String> ipStep = startStep
+                            .then(getVmIp(vmId)
+                                    // 재시도/타임아웃
+                                    .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
+                                    .timeout(Duration.ofSeconds(60))
                             );
-                });
 
+                    return ipStep.flatMap(ip -> {
+                        VmDetail vmDetail = new VmDetail(
+                                vmType,
+                                vm.getVmid(),
+                                vm.getName(),
+                                vm.getCores(),
+                                Integer.parseInt(vm.getMemory()),
+                                disk,
+                                ip
+                        );
+
+                        return vmRepository.save(Vm.builder()
+                                .ownerUserId(t.getT4().id())
+                                .detail(vmDetail)
+                                .active(true)
+                                .build());
+                    });
+                });
     }
 
     // 템플릿 클론
@@ -250,5 +270,54 @@ public class ProxmoxClient {
                 .flatMap(pk -> pk != null
                         ? Mono.just(pk)
                         : Mono.error(new IllegalArgumentException("Fingerprint not found: " + fingerprint)));
+    }
+
+    /*-----------------------VM IP 조회-----------------------*/
+    private Mono<String> getVmIp(Integer vmId) {
+        Mono<String> jsonString = webClient.get()
+                .uri("/nodes/pve/qemu/{vmId}/agent/network-get-interfaces", vmId)
+                .header(HttpHeaders.AUTHORIZATION,
+                        "PVEAPIToken=" + tokenId + "=" + tokenValue)
+                .retrieve()
+                .bodyToMono(new ParameterizedTypeReference<>() {});
+
+        return jsonString.flatMap(data -> {
+            ObjectMapper mapper = new ObjectMapper();
+
+            final JsonNode root;
+
+            try {
+                root = mapper.readTree(data);
+            } catch (JsonProcessingException e) {
+                return Mono.error(new IllegalStateException("VM IP mapping failed: " + e.getMessage(), e));
+            }
+
+            Optional<String> ipOpt = StreamSupport.stream(root.path("data").path("result").spliterator(), false)
+                    .filter(n -> "eth0".equals(n.path("name").asText()))
+                    .flatMap(n -> StreamSupport.stream(n.path("ip-addresses").spliterator(), false))
+                    .filter(n -> "ipv4".equals(n.path("ip-address-type").asText()))
+                    .map(n -> n.path("ip-address").asText())
+                    .findFirst();
+
+            return Mono.justOrEmpty(ipOpt)
+                    .switchIfEmpty(Mono.error(new IllegalStateException("eth0 IPv4 not found")));
+        });
+    }
+
+    /*-----------------------VM 시작 / 종료-----------------------*/
+    private void startVm(Integer vmId) {
+        webClient.post()
+                .uri("/nodes/pve/qemu/{vmId}/status/start", vmId)
+                .header(HttpHeaders.AUTHORIZATION,
+                        "PVEAPIToken=" + tokenId + "=" + tokenValue)
+                .retrieve();
+    }
+
+    private void stopVm(Integer vmId) {
+        webClient.post()
+                .uri("/nodes/pve/qemu/{vmId}/status/stop", vmId)
+                .header(HttpHeaders.AUTHORIZATION,
+                        "PVEAPIToken=" + tokenId + "=" + tokenValue)
+                .retrieve();
     }
 }

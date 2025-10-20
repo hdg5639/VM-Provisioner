@@ -8,6 +8,7 @@ public record VmDetail(
         String name,
         Integer cpu,
         Integer ram,
-        Integer disk
+        Integer disk,
+        String ipv4
 ) {
 }
