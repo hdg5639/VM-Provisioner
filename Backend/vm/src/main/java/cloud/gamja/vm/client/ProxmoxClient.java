@@ -169,7 +169,10 @@ public class ProxmoxClient {
                             .flatMap(body -> Mono.error(new IllegalStateException(
                                     "Clone failed: " + res.statusCode().value() + ": " + body)));
                 })
-                .flatMap(result -> customizeClonedVm(vm));
+                .flatMap(result ->
+                        customizeClonedVm(vm)
+                                .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
+                                .timeout(Duration.ofSeconds(60)));
     }
 
     // 클론된 VM 세부 설정 수정
