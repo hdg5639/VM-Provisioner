@@ -114,12 +114,14 @@ public class ProxmoxClient {
 
                     // 템플릿 클론
                     Mono<?> cloneStep = cloneFromTemplate(vm, vmType);
+                    log.info("cloneStep end");
 
                     // VM 시작
                     Mono<?> startStep = cloneStep
                             // 복제 로딩 시간 대기
                             .then(Mono.delay(Duration.ofSeconds(20)))
-                            .then(Mono.fromRunnable(() -> startVm(vmId)));
+                            .then(startVm(vmId));
+                    log.info("startStep end");
 
                     // IP 획득
                     Mono<String> ipStep = startStep
@@ -130,6 +132,7 @@ public class ProxmoxClient {
                                     .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
                                     .timeout(Duration.ofSeconds(60))
                             );
+                    log.info("ipStep end");
 
                     return ipStep.flatMap(ip -> {
                         VmDetail vmDetail = new VmDetail(
@@ -281,9 +284,9 @@ public class ProxmoxClient {
     }
 
     /*-----------------------VM IP 조회-----------------------*/
-    private Mono<String> getVmIp(Integer vmId) {
+    private Mono<String> getVmIp(Integer vmid) {
         Mono<String> jsonString = webClient.get()
-                .uri("/nodes/pve/qemu/{vmId}/agent/network-get-interfaces", vmId)
+                .uri("/nodes/{node}/qemu/{vmid}/agent/network-get-interfaces","pve", vmid)
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve()
@@ -313,19 +316,21 @@ public class ProxmoxClient {
     }
 
     /*-----------------------VM 시작 / 종료-----------------------*/
-    private void startVm(Integer vmId) {
-        webClient.post()
-                .uri("/nodes/pve/qemu/{}/status/start", vmId)
+    private Mono<Void> startVm(Integer vmid) {
+        return webClient.post()
+                .uri("/nodes/{node}/qemu/{vmid}/status/start", "pve", vmid)
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
-                .retrieve();
+                .retrieve()
+                .bodyToMono(Void.class);
     }
 
-    private void stopVm(Integer vmId) {
-        webClient.post()
-                .uri("/nodes/pve/qemu/{}/status/stop", vmId)
+    private Mono<Void> stopVm(Integer vmid) {
+        return webClient.post()
+                .uri("/nodes/{node}/qemu/{vmid}/status/stop", "pve", vmid)
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
-                .retrieve();
+                .retrieve()
+                .bodyToMono(Void.class);
     }
 }
