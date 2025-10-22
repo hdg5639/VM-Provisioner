@@ -116,14 +116,15 @@ public class ProxmoxClient {
                     Mono<?> cloneStep = cloneFromTemplate(vm, vmType);
 
                     // VM 시작
-                    Mono<?> startStep = cloneStep.then(Mono.fromRunnable(() ->
-                            startVm(vmId))
-                                .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
-                                .timeout(Duration.ofSeconds(60))
-                    );
+                    Mono<?> startStep = cloneStep
+                            // 복제 로딩 시간 대기
+                            .then(Mono.delay(Duration.ofSeconds(20)))
+                            .then(Mono.fromRunnable(() -> startVm(vmId)));
 
                     // IP 획득
                     Mono<String> ipStep = startStep
+                            // VM 시작 후 게스트 에이전트 시작 대기
+                            .then(Mono.delay(Duration.ofSeconds(20)))
                             .then(getVmIp(vmId)
                                     // 재시도/타임아웃
                                     .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
@@ -314,7 +315,7 @@ public class ProxmoxClient {
     /*-----------------------VM 시작 / 종료-----------------------*/
     private void startVm(Integer vmId) {
         webClient.post()
-                .uri("/nodes/pve/qemu/{vmId}/status/start", vmId)
+                .uri("/nodes/pve/qemu/{}/status/start", vmId)
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve();
@@ -322,7 +323,7 @@ public class ProxmoxClient {
 
     private void stopVm(Integer vmId) {
         webClient.post()
-                .uri("/nodes/pve/qemu/{vmId}/status/stop", vmId)
+                .uri("/nodes/pve/qemu/{}/status/stop", vmId)
                 .header(HttpHeaders.AUTHORIZATION,
                         "PVEAPIToken=" + tokenId + "=" + tokenValue)
                 .retrieve();
