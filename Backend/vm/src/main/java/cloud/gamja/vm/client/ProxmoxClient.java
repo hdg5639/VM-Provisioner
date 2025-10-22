@@ -113,15 +113,19 @@ public class ProxmoxClient {
                     vm.setSshkeys(t.getT3());
 
                     // 템플릿 클론
-                    Mono<?> cloneStep = cloneFromTemplate(vm, vmType);
-                    log.info("cloneStep end");
+                    Mono<?> cloneStep = cloneFromTemplate(vm, vmType)
+                            .doOnSubscribe(dis -> log.info("CloneStep start"))
+                            .doOnSuccess(v -> log.info("CloneStep end"))
+                            .doOnError(e -> log.error("CloneStep Failed: {}", e.getMessage(), e));
 
                     // VM 시작
                     Mono<?> startStep = cloneStep
                             // 복제 로딩 시간 대기
                             .then(Mono.delay(Duration.ofSeconds(20)))
-                            .then(startVm(vmId));
-                    log.info("startStep end");
+                            .then(startVm(vmId))
+                            .doOnSubscribe(dis -> log.info("StartStep start"))
+                            .doOnSuccess(v -> log.info("StartStep end"))
+                            .doOnError(e -> log.error("StartStep Failed: {}", e.getMessage(), e));
 
                     // IP 획득
                     Mono<String> ipStep = startStep
@@ -130,9 +134,10 @@ public class ProxmoxClient {
                             .then(getVmIp(vmId)
                                     // 재시도/타임아웃
                                     .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
-                                    .timeout(Duration.ofSeconds(60))
-                            );
-                    log.info("ipStep end");
+                                    .timeout(Duration.ofSeconds(60)))
+                            .doOnSubscribe(dis -> log.info("IpStep start"))
+                            .doOnSuccess(v -> log.info("IpStep end"))
+                            .doOnError(e -> log.error("IpStep Failed: {}", e.getMessage(), e));
 
                     return ipStep.flatMap(ip -> {
                         VmDetail vmDetail = new VmDetail(

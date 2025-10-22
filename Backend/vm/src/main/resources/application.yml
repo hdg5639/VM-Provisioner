@@ -11,6 +11,10 @@ spring:
   application:
     name: vm
 
+  mvc:
+    async:
+      request-timeout: 180s
+
   r2dbc:
     url: ${DATABASE_REACTIVE_URL}
     username: ${DATABASE_USERNAME}
