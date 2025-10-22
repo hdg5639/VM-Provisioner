@@ -116,7 +116,11 @@ public class ProxmoxClient {
                     Mono<?> cloneStep = cloneFromTemplate(vm, vmType);
 
                     // VM 시작
-                    Mono<?> startStep = cloneStep.then(Mono.fromRunnable(() -> startVm(vmId)));
+                    Mono<?> startStep = cloneStep.then(Mono.fromRunnable(() ->
+                            startVm(vmId))
+                                .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
+                                .timeout(Duration.ofSeconds(60))
+                    );
 
                     // IP 획득
                     Mono<String> ipStep = startStep
